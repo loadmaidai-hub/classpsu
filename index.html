@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>เข้าเรียน & ประลองความรู้ - 969-042G4</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+
+  <style>
+    .student-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 28px;
+      padding: 2.2rem;
+      max-width: 480px;
+      width: 100%;
+      margin: 1.5rem auto;
+      border: 1px solid var(--border-soft);
+      box-shadow: 0 25px 60px -15px rgba(67, 56, 202, 0.12);
+      text-align: center;
+    }
+
+    @media (max-width: 640px) {
+      .student-card {
+        padding: 1.5rem 1.2rem;
+        border-radius: 20px;
+      }
+    }
+
+    .form-group {
+      margin-bottom: 1.1rem;
+      text-align: left;
+    }
+
+    label {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #334155;
+      display: block;
+      margin-bottom: 0.35rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.8rem 1rem;
+      border-radius: 14px;
+      border: 1.5px solid var(--border-soft);
+      font-size: 0.95rem;
+      outline: none;
+      background: white;
+      transition: border-color 0.2s;
+    }
+
+    input:focus {
+      border-color: var(--primary);
+    }
+
+    .btn-action {
+      width: 100%;
+      padding: 0.85rem;
+      border-radius: 14px;
+      border: none;
+      background: var(--primary);
+      color: white;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 0.6rem;
+    }
+
+    .btn-action:hover:not(:disabled) {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-action:disabled {
+      background: #94A3B8;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    #quizSection {
+      display: none;
+      margin-top: 1.5rem;
+      text-align: left;
+      border-top: 1.5px dashed var(--border-soft);
+      padding-top: 1.2rem;
+    }
+
+    .quiz-options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.8rem;
+      margin-top: 1rem;
+    }
+
+    .btn-opt {
+      padding: 1rem;
+      border-radius: 14px;
+      border: 2px solid var(--border-soft);
+      background: #F8FAFC;
+      font-weight: 800;
+      font-size: 1.2rem;
+      color: #1E1B4B;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+    }
+    .btn-opt:hover {
+      background: #EEF2FF;
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="student-card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+      <span class="tag tag-present" id="gpsStatusBadge">📡 รอพิกัด GPS...</span>
+      <span style="font-size:0.8rem; color:var(--text-muted);" id="sessionBadge">969-042G4</span>
+    </div>
+
+    <h2 style="font-size:1.5rem; font-weight:800; color:#1E1B4B; margin-bottom:0.3rem;">
+      เช็คชื่อ & ประลองความรู้
+    </h2>
+    <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:1.4rem;">
+      สแกนพิกัดให้อยู่ในห้องเรียน และใส่รหัส PIN 4 หลักจากจอหน้าห้อง
+    </p>
+
+    <div id="checkinSection">
+      <div class="form-group">
+        <label>รหัสนักศึกษา (10 หลัก):</label>
+        <input type="text" id="studentIdInput" maxlength="10" placeholder="เช่น 6730611001" oninput="previewStudentName()">
+      </div>
+
+      <div class="form-group">
+        <label>ชื่อ - นามสกุล:</label>
+        <input type="text" id="studentNameInput" readonly placeholder="จะแสดงอัตโนมัติ" style="background:#F8FAFC;">
+      </div>
+
+      <div class="form-group">
+        <label>รหัส PIN เข้าห้องสด (4 หลักจากจอใหญ่):</label>
+        <input type="text" id="pinInput" maxlength="4" placeholder="••••" style="letter-spacing:6px; font-size:1.3rem; text-align:center; font-weight:800; color:var(--primary);">
+      </div>
+
+      <button class="btn-action" id="btnVerify" onclick="verifyAndCheckIn()">
+        ยืนยันตัวตนเข้าห้องเรียน 🚀
+      </button>
+
+      <div style="margin-top:1.2rem;">
+        <a href="submit.html" style="font-size:0.85rem; color:var(--primary); font-weight:600; text-decoration:none;">
+          📂 ต้องการส่งการบ้าน Google Drive คลิกที่นี่
+        </a>
+      </div>
+    </div>
+
+    <div id="quizSection">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:0.88rem; font-weight:700; color:#1E1B4B;">คำถามบนจอใหญ่ (Turing Live)</span>
+        <span id="quizTimerBadge" style="font-size:0.85rem; font-weight:800; color:var(--danger);">⏳ 15 วิ</span>
+      </div>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.3rem;">
+        * ดูโจทย์และตัวเลือกบนจอโปรเจกเตอร์หน้าห้อง แล้วกดเลือกช้อยส์ด้านล่างทันที
+      </p>
+
+      <div class="quiz-options-grid">
+        <button class="btn-opt" onclick="submitAnswer('A')">A</button>
+        <button class="btn-opt" onclick="submitAnswer('B')">B</button>
+        <button class="btn-opt" onclick="submitAnswer('C')">C</button>
+        <button class="btn-opt" onclick="submitAnswer('D')">D</button>
+      </div>
+    </div>
+
+    <div id="resultBox" style="display:none; margin-top:1.2rem; padding:1rem; border-radius:14px; background:#ECFDF5; border:1px solid #A7F3D0;">
+      <h3 style="color:#065F46; font-size:1.1rem; font-weight:800;">✓ เช็คชื่อและบันทึกคะแนนแล้ว</h3>
+      <p id="resultDetails" style="font-size:0.88rem; color:#047857; margin-top:0.3rem;"></p>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/student.js"></script>
+</body>
+</html>

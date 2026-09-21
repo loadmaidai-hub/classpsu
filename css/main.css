@@ -1,0 +1,75 @@
+@font-face {
+  font-family: 'Gotham';
+  src: local('Gotham'), local('Gotham-Book'), local('Gotham Book');
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Gotham';
+  src: local('Gotham-Bold'), local('Gotham Bold');
+  font-weight: 700;
+  font-style: normal;
+}
+
+:root {
+  --primary: #4338CA;
+  --primary-hover: #3730A3;
+  --secondary: #059669;
+  --dark: #0F172A;
+  --text-muted: #64748B;
+  --border-soft: #E2E8F0;
+  --danger: #EF4444;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Gotham', 'Gotham Book', 'Sukhumvit Set', -apple-system, BlinkMacSystemFont, 'Prompt', sans-serif !important;
+}
+
+body {
+  background: radial-gradient(at 10% 10%, #FDF4FF 0px, transparent 50%),
+              radial-gradient(at 90% 15%, #EDE9FE 0px, transparent 50%),
+              #F8FAFC;
+  color: var(--dark);
+  min-height: 100vh;
+  padding: 1.5rem;
+}
+
+@media (max-width: 640px) {
+  body {
+    padding: 0.8rem;
+  }
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+th, td {
+  padding: 0.75rem 0.85rem;
+  border-bottom: 1px solid #F1F5F9;
+  font-size: 0.9rem;
+}
+
+th {
+  color: var(--text-muted);
+  font-weight: 600;
+  background: #F8FAFC;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.tag {
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.tag-present { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
+.tag-late { background: #FFFBEB; color: #92400E; border: 1px solid #FDE68A; }
+.tag-absent { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }

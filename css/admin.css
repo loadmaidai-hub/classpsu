@@ -1,0 +1,51 @@
+.admin-card {
+  background: white;
+  border-radius: 28px;
+  padding: 2.2rem;
+  max-width: 1440px;
+  margin: 0 auto;
+  border: 1px solid var(--border-soft);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.04);
+}
+
+@media (max-width: 640px) {
+  .admin-card {
+    padding: 1.2rem;
+  }
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.2rem;
+  margin: 1.5rem 0;
+}
+
+.kpi-card {
+  padding: 1.4rem;
+  border-radius: 20px;
+  color: white;
+  min-height: 125px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.card-blue { background: linear-gradient(135deg, #1E3A8A, #3B82F6); }
+.card-purple { background: linear-gradient(135deg, #4338CA, #6366F1); }
+.card-orange { background: linear-gradient(135deg, #C2410C, #FB923C); }
+.card-slate { background: linear-gradient(135deg, #0F172A, #334155); }
+
+.kpi-num {
+  font-size: 2.1rem;
+  font-weight: 800;
+}
+
+.btn-pill {
+  padding: 0.55rem 1.1rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border-soft);
+  background: white;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+}

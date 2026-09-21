@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - 969-042G4</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/admin.css">
+  <style>
+    .top5-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 0.9rem;
+      margin-bottom: 1.5rem;
+    }
+    .top5-card {
+      background: #FFFFFF;
+      border: 1.5px solid #E2E8F0;
+      border-radius: 18px;
+      padding: 1rem;
+      text-align: center;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+      position: relative;
+      overflow: hidden;
+    }
+    .top5-card.rank-1 { border-color: #F59E0B; background: linear-gradient(180deg, #FFFBEB 0%, #FFFFFF 100%); }
+    .top5-card.rank-2 { border-color: #94A3B8; background: linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%); }
+    .top5-card.rank-3 { border-color: #D97706; background: linear-gradient(180deg, #FFF7ED 0%, #FFFFFF 100%); }
+    
+    .top5-badge { font-size: 1.6rem; margin-bottom: 0.2rem; }
+    .top5-name { font-weight: 700; color: #1E1B4B; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .top5-id { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.4rem; }
+    .top5-score { font-weight: 800; color: var(--primary); font-size: 1.05rem; }
+
+    .modal-overlay {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      z-index: 10000; justify-content: center; align-items: center; padding: 1.2rem;
+    }
+    .modal-content {
+      background: white; border-radius: 24px; max-width: 900px; width: 100%;
+      max-height: 85vh; display: flex; flex-direction: column; padding: 1.8rem;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.25);
+    }
+    .modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 1rem; padding-bottom: 0.8rem; border-bottom: 1px solid var(--border-soft);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 1. ประตูรหัสผ่านอาจารย์ -->
+  <div id="authGate" style="display:flex; justify-content:center; align-items:center; min-height:80vh;">
+    <div style="background:white; border-radius:28px; padding:2.5rem; max-width:420px; width:100%; border:1px solid var(--border-soft); box-shadow:0 25px 60px -15px rgba(67, 56, 202, 0.15); text-align:center;">
+      <div style="font-size:2.8rem; margin-bottom:0.5rem;">🔒</div>
+      <h2 style="font-size:1.4rem; font-weight:800; color:#1E1B4B; margin-bottom:0.4rem;">ระบบรักษาความปลอดภัย</h2>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.4rem;">กรุณากรอกรหัสผ่านอาจารย์ผู้สอนเพื่อเข้าสู่แดชบอร์ด</p>
+      
+      <input type="password" id="adminPasswordInput" placeholder="กรอกรหัสผ่าน..." 
+        style="width:100%; padding:0.8rem 1rem; border-radius:14px; border:1.5px solid var(--border-soft); font-size:1rem; outline:none; text-align:center; margin-bottom:0.8rem;"
+        onkeyup="if(event.key === 'Enter') verifyAdminPassword()">
+
+      <button class="btn-pill" style="width:100%; background:var(--primary); color:white; border:none; padding:0.85rem; border-radius:14px; font-size:1rem; cursor:pointer;" onclick="verifyAdminPassword()">
+        ปลดล็อกเข้าสู่ระบบ 🔓
+      </button>
+      <p id="authErrorMsg" style="display:none; color:var(--danger); font-weight:700; font-size:0.85rem; margin-top:0.8rem;">
+        ❌ รหัสผ่านไม่ถูกต้อง โปรดลองอีกครั้ง
+      </p>
+    </div>
+  </div>
+
+  <!-- 2. แผงแดชบอร์ดหลัก -->
+  <div id="adminContent" style="display:none;" class="admin-card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+      <div>
+        <h2 style="font-size:1.6rem; font-weight:800; color:#1E1B4B;">Admin Control Center</h2>
+        <p style="font-size:0.85rem; color:var(--text-muted);">969-042G4 การใช้ปัญญาประดิษฐ์ในชีวิตประจำวัน</p>
+      </div>
+      <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+        <select id="sessionSelect" class="btn-pill" onchange="changeAdminSession()"></select>
+        <span>ตัดสาย: <input type="time" id="cutoffTime" value="10:45" class="btn-pill" onchange="saveCutoff()"></span>
+        <button class="btn-pill" style="background:#4338CA; color:white; border:none;" onclick="openScoreModal()">📊 ดูตารางคะแนนเต็ม</button>
+        <button class="btn-pill" onclick="exportCSV()">📥 โหลด CSV</button>
+        <button class="btn-pill" style="background:#FEE2E2; color:#DC2626; border-color:#FECACA;" onclick="logoutAdmin()">🚪 ออกจากระบบ</button>
+      </div>
+    </div>
+    
+    <!-- แถบผูกโฟลเดอร์ Google Drive และตั้งเวลาปิดรับ (มีปุ่มบันทึกและรีเซ็ต) -->
+    <div style="margin: 1.2rem 0; background:#F8FAFC; padding:1rem 1.4rem; border-radius:18px; border:1px solid #E2E8F0; display:flex; gap:1rem; flex-wrap:wrap; align-items:center;">
+      <div style="display:flex; align-items:center; gap:0.5rem;">
+        <label style="font-size:0.88rem; font-weight:700; color:#1E1B4B;">📁 ลิงก์โฟลเดอร์ Drive:</label>
+        <input type="url" id="folderUrlInput" placeholder="วางลิงก์โฟลเดอร์ Google Drive" class="btn-pill" style="width:260px;">
+      </div>
+      <div style="display:flex; align-items:center; gap:0.5rem;">
+        <label style="font-size:0.88rem; font-weight:700; color:#1E1B4B;">⏰ ปิดรับ:</label>
+        <input type="datetime-local" id="deadlineInput" class="btn-pill">
+      </div>
+      
+      <!-- ปุ่มบันทึก และ ปุ่มรีเซ็ตลิงก์ -->
+      <div style="display:flex; gap:0.4rem; align-items:center;">
+        <button class="btn-pill" style="background:#059669; color:white; border:none; font-weight:700;" onclick="saveAssignmentConfig()">
+          💾 บันทึก
+        </button>
+        <button class="btn-pill" style="background:#F1F5F9; color:#64748B; border:1px solid #CBD5E1; font-weight:600;" onclick="resetAssignmentConfig()" title="ล้างลิงก์และเวลาของสัปดาห์นี้">
+          🔄 รีเซ็ต
+        </button>
+      </div>
+
+      <span style="font-size:0.78rem; color:var(--text-muted); flex:1; min-width:200px;">* เมื่อหมดเวลา หน้าเว็บจะล็อกไม่ให้นักศึกษาส่งไฟล์ทันที</span>
+    </div>
+
+    <!-- KPI Summary Grid -->
+    <div class="kpi-grid">
+      <div class="kpi-card card-blue"><div>นักศึกษาทั้งหมด</div><div class="kpi-num">65 คน</div></div>
+      <div class="kpi-card card-purple"><div>เข้าเรียนตรงเวลา</div><div class="kpi-num" id="kpiVal1">0</div></div>
+      <div class="kpi-card card-orange"><div>มาสาย</div><div class="kpi-num" id="kpiVal2">0</div></div>
+      <div class="kpi-card card-slate"><div>ส่งการบ้านแล้ว</div><div class="kpi-num" id="kpiVal3" style="color:#34D399;">0</div></div>
+    </div>
+
+    <!-- แผงแสดง Top 1-5 ประจำคาบ -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin: 1.5rem 0 0.8rem;">
+      <h3 style="font-size:1.15rem; font-weight:800; color:#1E1B4B;">🏆 อันดับคะแนนสูงสุดประจำคาบ (Top 1 - 5)</h3>
+      <button class="btn-pill" style="font-size:0.8rem; color:var(--primary);" onclick="openScoreModal()">ดูตารางคะแนนทั้งหมด →</button>
+    </div>
+    <div class="top5-grid" id="top5Container"></div>
+
+    <!-- แถบฟิลเตอร์คัดกรองด่วน -->
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.6rem; margin:1.2rem 0 0.8rem;">
+      <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+        <button class="btn-pill" id="filterAll" style="background:#1E1B4B; color:white;" onclick="setAdminFilter('ALL')">ทั้งหมด (65)</button>
+        <button class="btn-pill" id="filterNoHw" onclick="setAdminFilter('NO_HW')">⚠️ ยังไม่ส่งการบ้าน</button>
+        <button class="btn-pill" id="filterAbsent" onclick="setAdminFilter('ABSENT')">❌ ขาดเรียน</button>
+        <button class="btn-pill" id="filterLeave" onclick="setAdminFilter('LEAVE')">🏥 ลาเรียน</button>
+      </div>
+      <span style="font-size:0.8rem; color:var(--text-muted);">* คลิกที่ป้ายสถานะของนักศึกษาเพื่อเปลี่ยนเป็น <strong>"ลาเรียน"</strong> ได้ทันที</span>
+    </div>
+
+    <!-- ตารางหลักประจำห้องเรียน -->
+    <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:20px; padding:1.2rem; overflow-x:auto;">
+      <table>
+        <thead id="adminThead"></thead>
+        <tbody id="adminTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MODAL ตารางคะแนนเต็ม (Full Scoreboard) -->
+  <div id="scoreModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h2 style="font-size:1.3rem; font-weight:800; color:#1E1B4B;">📊 ตารางคะแนนควิซและประลองความรู้แบบเต็ม</h2>
+          <p style="font-size:0.85rem; color:var(--text-muted);" id="modalSessionTitle">ประจำสัปดาห์</p>
+        </div>
+        <button class="btn-pill" onclick="closeScoreModal()" style="font-size:1rem; padding:0.3rem 0.8rem;">✕</button>
+      </div>
+      <div style="overflow-y:auto; flex:1;">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:15%;">อันดับ</th>
+              <th style="width:25%;">รหัสนักศึกษา</th>
+              <th style="width:40%;">ชื่อ - นามสกุล</th>
+              <th style="width:20%; text-align:right;">คะแนนที่ได้</th>
+            </tr>
+          </thead>
+          <tbody id="fullScoreboardBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/admin.js"></script>
+
+  <!-- MODAL ปรับสถานะการเข้าเรียนรายบุคคล -->
+  <div id="statusModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 440px; padding: 2rem;">
+      <div class="modal-header">
+        <h3 style="font-size: 1.25rem; font-weight: 800; color: #1E1B4B;">✏️ ปรับสถานะการเข้าเรียน</h3>
+        <button class="btn-pill" onclick="closeStatusModal()" style="font-size: 0.9rem; padding: 0.3rem 0.7rem;">✕</button>
+      </div>
+
+      <div style="margin-bottom: 1.2rem; text-align: left;">
+        <div style="font-size: 0.82rem; color: var(--text-muted);">นักศึกษา:</div>
+        <div id="modalTargetStudent" style="font-size: 1.05rem; font-weight: 700; color: #1E1B4B; margin-top: 0.2rem;">-</div>
+      </div>
+
+      <div style="margin-bottom: 1.2rem; text-align: left;">
+        <label style="font-size: 0.88rem; font-weight: 700; color: #1E1B4B; display: block; margin-bottom: 0.4rem;">
+          เลือกสถานะการเข้าเรียน:
+        </label>
+        <select id="statusSelect" class="btn-pill" style="width: 100%; padding: 0.7rem 1rem; border-radius: 14px; font-size: 0.95rem;" onchange="handleStatusSelectChange()">
+          <option value="PRESENT">✅ เข้าเรียนตรงเวลา (Present)</option>
+          <option value="LATE">⏳ มาสาย (Late)</option>
+          <option value="LEAVE">🏥 ลาเรียน (Leave)</option>
+          <option value="ABSENT">❌ ขาดเรียน / รีเซ็ตสถานะ (Absent)</option>
+        </select>
+      </div>
+
+      <!-- ช่องกรอกเหตุผล (จะแสดงเฉพาะตอนเลือก "ลาเรียน") -->
+      <div id="leaveReasonBox" style="display: none; margin-bottom: 1.4rem; text-align: left;">
+        <label style="font-size: 0.88rem; font-weight: 700; color: #B45309; display: block; margin-bottom: 0.4rem;">
+          📌 เหตุผลการลา:
+        </label>
+        <input type="text" id="leaveReasonInput" placeholder="เช่น ลาป่วย (มีใบรับรองแพทย์), ลากิจ" 
+               style="width: 100%; padding: 0.7rem 1rem; border-radius: 14px; border: 1.5px solid #FDE68A; background: #FFFBEB; font-size: 0.9rem; outline: none;">
+      </div>
+
+      <div style="display: flex; gap: 0.6rem; justify-content: flex-end;">
+        <button class="btn-pill" onclick="closeStatusModal()">ยกเลิก</button>
+        <button class="btn-pill" style="background: var(--primary); color: white; border: none; font-weight: 700;" onclick="saveStudentStatus()">
+          บันทึกสถานะ 💾
+        </button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ส่งการบ้าน - 969-042G4</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    .submit-box {
+      max-width: 520px;
+      margin: 2rem auto;
+      background: white;
+      padding: 2.2rem;
+      border-radius: 28px;
+      border: 1px solid var(--border-soft);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.04);
+    }
+    input {
+      width: 100%;
+      padding: 0.8rem 1rem;
+      border-radius: 14px;
+      border: 1.5px solid var(--border-soft);
+      margin: 0.4rem 0 1.1rem;
+      outline: none;
+      font-size: 0.95rem;
+    }
+    .upload-zone {
+      border: 2px dashed #CBD5E1;
+      border-radius: 16px;
+      padding: 1.8rem 1rem;
+      text-align: center;
+      background: #F8FAFC;
+      cursor: pointer;
+      margin: 0.4rem 0 1rem;
+      transition: all 0.2s;
+    }
+    .upload-zone:hover {
+      border-color: var(--primary);
+      background: #EEF2FF;
+    }
+    .upload-zone.drag-over {
+      border-color: var(--primary);
+      background: #EEF2FF;
+      border-style: solid;
+      transform: scale(1.02);
+    }
+    .validation-status {
+      font-size: 0.88rem;
+      font-weight: 700;
+      padding: 0.75rem 1rem;
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      display: none;
+      text-align: left;
+    }
+    .status-error { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+    .status-success { background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; }
+    
+    .loading-spinner {
+      display: none;
+      margin: 1.2rem 0;
+      text-align: center;
+      font-weight: 700;
+      color: var(--primary);
+      font-size: 0.95rem;
+      background: #EEF2FF;
+      padding: 0.9rem;
+      border-radius: 14px;
+    }
+    .btn-action {
+      display: block;
+      text-align: center;
+      width: 100%;
+      padding: 0.9rem;
+      border-radius: 14px;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+    .btn-disabled {
+      background: #94A3B8 !important;
+      cursor: not-allowed !important;
+      color: white !important;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="submit-box">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+      <span id="countdownBadge" class="tag tag-present" style="font-size:0.85rem;">⏳ กำลังโหลดเวลา...</span>
+      <span id="sessionLabel" style="font-size:0.8rem; color:var(--text-muted);">969-042G4</span>
+    </div>
+
+    <h2 style="color:#1E1B4B; margin-bottom:0.4rem;">📤 ส่งการบ้าน</h2>
+    <div style="background:#FFFBEB; border:1px solid #FDE68A; border-radius:12px; padding:0.75rem 1rem; margin-bottom:1.2rem;">
+      <p style="font-size:0.85rem; color:#92400E; margin:0; line-height:1.4;">
+        📌 <strong>ชื่อไฟล์:</strong> ตั้งชื่อไฟล์ให้ตรงตามรูปแบบ<br>
+        <span style="font-family:monospace; font-weight:700; color:#B45309;">[รหัสนักศึกษา] - [ชื่อ นามสกุล].[นามสกุลไฟล์]</span>
+      </p>
+    </div>
+
+    <label style="font-size:0.88rem; font-weight:600;">รหัสนักศึกษา (10 หลัก):</label>
+    <input type="text" id="stuId" maxlength="10" placeholder="เช่น 6730611001" oninput="previewName()">
+
+    <label style="font-size:0.88rem; font-weight:600;">ชื่อ - นามสกุล:</label>
+    <input type="text" id="stuName" readonly style="background:#F8FAFC;" placeholder="ระบบจะแสดงอัตโนมัติ">
+
+    <label style="font-size:0.88rem; font-weight:600;">เลือกไฟล์ชิ้นงาน:</label>
+    <div id="dropZone" class="upload-zone" onclick="document.getElementById('fileInput').click()">
+      <div style="font-size:2.2rem; margin-bottom:0.3rem;">📄</div>
+      <div id="fileUploadPrompt" style="font-size:0.95rem; font-weight:700; color:#1E1B4B;">คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่</div>
+      <div style="font-size:0.78rem; color:#94A3B8; margin-top:0.2rem;">(ระบบจะส่งไฟล์ตรงเข้าโฟลเดอร์ของอาจารย์ทันที)</div>
+    </div>
+    <input type="file" id="fileInput" style="display:none;" onchange="handleFileSelected(event)">
+
+    <div id="validationBox" class="validation-status"></div>
+
+    <div id="loadingStatus" class="loading-spinner">
+      🔄 กำลังส่งไฟล์กรุณารอสักครู่...
+    </div>
+
+    <button id="btnUpload" class="btn-action btn-disabled" disabled onclick="uploadToGoogleDrive()">
+      🚀 ส่งงานทันที
+    </button>
+
+    <p id="lockNotice" style="display:none; color:var(--danger); font-weight:700; text-align:center; margin-top:1rem; font-size:0.9rem;">
+      ⛔ ระบบปิดรับการส่งการบ้านสัปดาห์นี้แล้ว เนื่องจากหมดเวลาส่ง
+    </p>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/submit.js"></script>
+</body>
+</html>

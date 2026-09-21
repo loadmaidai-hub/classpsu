@@ -1,0 +1,117 @@
+.slot-overlay {
+  display: none;
+  position: fixed;
+  top: 0; 
+  left: 0; 
+  width: 100%; 
+  height: 100%;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 10000;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.slot-frame {
+  background: radial-gradient(circle at 50% 20%, #1E1B4B, #0F172A);
+  border-radius: 36px;
+  padding: 2.2rem 1.8rem;
+  max-width: 520px;
+  width: 100%;
+  text-align: center;
+  border: 4px solid #F59E0B;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(245, 158, 11, 0.3);
+  position: relative;
+  box-sizing: border-box;
+}
+
+.slot-chassis {
+  background: linear-gradient(180deg, #E6CA65 0%, #BA8B02 45%, #F5DE88 55%, #9E7404 100%);
+  padding: 1.4rem;
+  border-radius: 26px;
+  margin: 1.2rem auto;
+  border: 2px solid #FFFBEB;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35), inset 0 2px 6px rgba(255, 255, 255, 0.8);
+}
+
+.slot-bezel {
+  background: #18181B;
+  border-radius: 18px;
+  padding: 0.8rem;
+  display: flex;
+  justify-content: center;
+  gap: 0.8rem;
+  border: 3px solid #785303;
+  box-shadow: inset 0 6px 12px rgba(0, 0, 0, 0.7);
+}
+
+.reel-window {
+  width: 90px;
+  height: 120px;
+  background: linear-gradient(180deg, #D1D5DB 0%, #FFFFFF 50%, #9CA3AF 100%);
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  border: 3px solid #FDE68A;
+  box-shadow: inset 0 8px 12px rgba(0, 0, 0, 0.3), inset 0 -8px 12px rgba(0, 0, 0, 0.3);
+}
+
+.reel-strip {
+  display: flex;
+  flex-direction: column;
+  transform: translateY(0px);
+  will-change: transform;
+}
+
+.reel-digit {
+  height: 120px;
+  line-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4.5rem;
+  font-weight: 800;
+  color: #DC2626;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  user-select: none;
+}
+
+.slot-close {
+  position: absolute;
+  top: 1.2rem;
+  right: 1.2rem;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.slot-result-box {
+  background: white;
+  border-radius: 18px;
+  padding: 1rem;
+  margin-bottom: 1.2rem;
+}
+
+.slot-spin-btn {
+  background: #DC2626;
+  color: white;
+  border: none;
+  padding: 0.8rem 2rem;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.slot-spin-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+.slot-spin-btn:disabled {
+  background: #94A3B8;
+  cursor: not-allowed;
+}

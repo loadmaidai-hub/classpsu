@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teacher Live Center - 969-042G4</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/teacher.css">
+  <link rel="stylesheet" href="css/slot.css">
+</head>
+<body>
+
+  <div class="dual-pane">
+    <div class="frame-box left-card">
+      <!-- Mac Window Controls & URL Badge -->
+      <div class="window-header">
+        <div class="mac-dots">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+        </div>
+        <div class="url-badge">969-042g4.class-radar.live</div>
+        <div style="width: 48px;"></div>
+      </div>
+
+      <div class="live-pill">
+        <span class="live-dot"></span>
+        <span>CLASS IS LIVE • เช็คชื่อ & ประลองความรู้</span>
+      </div>
+
+      <h1 class="projector-title" id="sessionTitle">สัปดาห์ที่ 1 : 16 กันยายน 2569</h1>
+      <p class="projector-subtitle">969-042G4 การใช้ปัญญาประดิษฐ์ในชีวิตประจำวัน | ทุกวันพุธ 10.30 - 12.20 น.</p>
+
+      <!-- กล่อง PIN 2 ชั้น -->
+      <div class="pin-display-box" id="pinBox">
+        <div class="pin-layer layer-base">
+          <div class="pin-top-bar">
+            <span class="pin-subtext-base">สแกนพิกัด GPS ตรวจชื่อ และใส่รหัสเข้าห้องสด:</span>
+            <span class="pin-badge-base" id="badgeBase">1:28</span>
+          </div>
+          <div class="big-pin" id="pinBase">----</div>
+        </div>
+
+        <div class="pin-layer layer-fill" id="pinFillLayer">
+          <div class="layer-fill-inner">
+            <div class="pin-top-bar">
+              <span class="pin-subtext-fill">สแกนพิกัด GPS ตรวจชื่อ และใส่รหัสเข้าห้องสด:</span>
+              <span class="pin-badge-fill" id="badgeFill">1:28</span>
+            </div>
+            <div class="big-pin" id="pinFill">----</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ข้อ 1: กล่อง QR Code อัตโนมัติสำหรับสแกนเข้า index.html -->
+      <div style="display:inline-flex; align-items:center; gap:1.2rem; background:#F8FAFC; border:1.5px solid #E2E8F0; padding:0.6rem 1.4rem; border-radius:22px; margin-bottom:1.3rem;">
+        <img id="qrCodeImg" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https://969-042g4.class-radar.live/index.html" 
+             alt="QR Code" style="width:75px; height:75px; border-radius:12px; border:2px solid white; box-shadow:0 4px 12px rgba(0,0,0,0.06);">
+        <div style="text-align:left;">
+          <div style="font-size:0.9rem; font-weight:800; color:#1E1B4B;">📲 สแกนเข้าห้องเรียน</div>
+          <div style="font-size:0.76rem; color:#64748B; margin-top:0.2rem; line-height:1.4;">เปิดกล้องส่อง QR เพื่อเข้าเช็คชื่อทันที<br>โดยไม่ต้องพิมพ์ URL เอง</div>
+        </div>
+      </div>
+
+      <!-- แถวปุ่มควบคุมกลาง -->
+      <div class="control-row">
+        <button class="btn-ctrl btn-pin" onclick="forceResetPIN()">
+          <span>⚡</span> สุ่ม PIN เดี๋ยวนี้
+        </button>
+
+        <div class="dropdown-wrapper">
+          <select id="leftSessionSelect" class="session-dropdown" onchange="changeSession()"></select>
+        </div>
+
+        <button class="btn-ctrl btn-lotto" onclick="openSlotModal()">
+          <span>🎰</span> สุ่ม 3 ตัว
+        </button>
+      </div>
+
+      <!-- แถบกรอกรหัสเข้าแดชบอร์ดอาจารย์ -->
+      <div class="admin-auth-capsule">
+        <input type="password" id="teacherPassInput" placeholder="ใส่รหัสอาจารย์เพื่อเข้าแดชบอร์ด" onkeyup="if(event.key==='Enter') enterTeacherDashboard()">
+        <button class="btn-capsule-submit" onclick="enterTeacherDashboard()">
+          เข้าสู่แผงควบคุมอาจารย์ 🔒
+        </button>
+      </div>
+    </div>
+
+    <!-- ฝั่งขวา: ตารางคะแนนสด -->
+    <div class="frame-box right-card">
+      <div class="right-header">
+        <div>
+          <div class="right-title">🏆 อันดับคะแนนสด (Live)</div>
+          <div class="realtime-status">
+            <span class="pulse-green-dot"></span>
+            Realtime Sync
+          </div>
+        </div>
+        <div class="right-top-tools">
+          <select id="sideSessionSelect" class="side-dropdown" onchange="syncFromSideDropdown()"></select>
+          <span class="submit-counter">ส่งแล้ว: <strong id="submittedCount">0</strong>/65</span>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="live-table">
+          <thead>
+            <tr>
+              <th style="width: 15%;">อันดับ</th>
+              <th style="width: 45%;">ชื่อ - นามสกุล</th>
+              <th style="width: 20%; text-align:center;">สถานะ</th>
+              <th style="width: 20%; text-align:right;">คะแนนควิซ</th>
+            </tr>
+          </thead>
+          <tbody id="sideTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL สล็อต 3 หลัก -->
+  <div id="slotModal" class="slot-overlay">
+    <div class="slot-frame">
+      <button onclick="closeSlotModal()" class="slot-close">✕</button>
+      <div style="font-size:1.3rem; font-weight:800; color:#FBBF24;">⭐ 969-042G4 LUCKY DRAW ⭐</div>
+      <div class="slot-chassis">
+        <div class="slot-bezel">
+          <div class="reel-window"><div class="reel-strip" id="reel1"><div class="reel-digit">0</div></div></div>
+          <div class="reel-window"><div class="reel-strip" id="reel2"><div class="reel-digit">0</div></div></div>
+          <div class="reel-window"><div class="reel-strip" id="reel3"><div class="reel-digit">0</div></div></div>
+        </div>
+      </div>
+      <div class="slot-result-box">
+        <div id="winnerName" style="font-size:1.3rem; font-weight:800; color:#1E1B4B;">กดปุ่มเพื่อเริ่มหมุนลุ้นรางวัล</div>
+        <div id="winnerId" style="font-size:0.9rem; color:var(--primary); font-weight:700;">รหัสนักศึกษา: ---</div>
+      </div>
+      <button id="btnSpin" onclick="spinLotto()" class="slot-spin-btn">
+        🎰 หมุนวงล้อสุ่มเดี๋ยวนี้!
+      </button>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/slot.js"></script>
+  <script src="js/teacher.js"></script>
+  <script>
+    function enterTeacherDashboard() {
+      const pass = document.getElementById('teacherPassInput').value.trim();
+      if (pass === CONFIG.TEACHER_PASSWORD) {
+        sessionStorage.setItem("adminAuthenticated", "true");
+        window.location.href = "admin.html";
+      } else {
+        alert("❌ รหัสผ่านอาจารย์ไม่ถูกต้อง");
+        document.getElementById('teacherPassInput').value = "";
+      }
+    }
+  </script>
+</body>
+</html>
