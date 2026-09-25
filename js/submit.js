@@ -1,7 +1,7 @@
-// js/submit.js - ระบบส่งการบ้าน ซิงก์ Week ตรงจาก Firebase เสมอ
+// js/submit.js - ระบบส่งการบ้าน ดึงข้อมูล Week 2 และโฟลเดอร์ที่บันทึกไว้แน่นอน
 
 let lockedCourseId = '969-042G4';
-let activeSession = "Week 2";
+let activeSession = "Week 2 (23 ก.ย. 2569)"; // ตั้งค่าเริ่มต้นเป็น Week 2
 let activeRoster = {};
 let currentAssignmentConfig = null;
 let timerInterval = null;
@@ -14,25 +14,29 @@ document.addEventListener("DOMContentLoaded", () => {
 function initSubmitApp() {
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
 
-  // 1. ตรวจสอบรหัสวิชาจาก URL Parameter (?course=...)
+  // 1. อ่านรหัสวิชา และสัปดาห์จาก URL Parameter (ถ้ามี)
   const urlParams = new URLSearchParams(window.location.search);
   const paramCourse = urlParams.get('course');
+  const paramSession = urlParams.get('session');
   const cachedCourse = localStorage.getItem('lockedCourseId') || localStorage.getItem('lastSelectedCourse');
+  
   lockedCourseId = paramCourse || cachedCourse || '969-042G4';
 
   // 2. ดึงสัปดาห์เรียนจริงจาก Firebase
   fetch(`${baseUrl}current_session.json`)
     .then(r => r.json())
     .then(session => {
-      if (session) {
+      // ถ้ามีการส่ง paramSession หรือดึงค่าได้ ให้ตั้งค่าตามนั้น
+      if (paramSession) {
+        activeSession = paramSession;
+      } else if (session) {
         activeSession = session;
+      } else if (CONFIG && CONFIG.SESSIONS && CONFIG.SESSIONS.length > 1) {
+        activeSession = CONFIG.SESSIONS[1]; // ค่าสำรอง: Week 2
       }
-      
-      // อัปเดตข้อความสัปดาห์ที่มุมขวาบนให้ตรงกับ Firebase เสมอ
-      const weekBadge = document.getElementById('currentWeekBadge');
-      if (weekBadge) {
-        weekBadge.innerText = `${activeSession}`;
-      }
+
+      // แสดงชื่อสัปดาห์บนมุมขวาบน
+      updateWeekBadgeUI();
 
       return fetch(`${baseUrl}courses/${lockedCourseId}.json`);
     })
@@ -44,11 +48,19 @@ function initSubmitApp() {
       loadAssignmentConfig();
     })
     .catch(() => {
+      updateWeekBadgeUI();
       loadAssignmentConfig();
     });
 }
 
-// ตรวจสอบรหัสนักศึกษาและดึงชื่อมาแสดงอัตโนมัติ
+function updateWeekBadgeUI() {
+  const weekBadge = document.getElementById('currentWeekBadge');
+  if (weekBadge) {
+    weekBadge.innerText = activeSession;
+  }
+}
+
+// ตรวจสอบรหัสนักศึกษาและแสดงชื่อ
 function checkSubmitStudentId() {
   const stId = document.getElementById('submitStudentId').value.trim();
   const nameInput = document.getElementById('submitStudentName');
@@ -64,14 +76,40 @@ function checkSubmitStudentId() {
   }
 }
 
-// โหลดการตั้งค่าการบ้านของสัปดาห์นั้น (ลิงก์ Google Drive + กำหนดส่ง)
+// ฟังก์ชันแปลง Key ให้ตรงกับ Path ของ Firebase
+function getSafeSessionKey(sess) {
+  if (typeof sanitizeKey === 'function') {
+    return sanitizeKey(sess);
+  }
+  return encodeURIComponent(sess).replace(/\./g, '%2E');
+}
+
+// โหลดการตั้งค่าการบ้านของ Week 2
 function loadAssignmentConfig() {
-  const safeSession = sanitizeKey(activeSession);
+  const safeSession = getSafeSessionKey(activeSession);
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
 
   fetch(`${baseUrl}session_settings/${lockedCourseId}/${safeSession}/assignmentConfig.json`)
     .then(r => r.json())
     .then(cfg => {
+      // หากของ Week ปัจจุบันไม่มี ให้ลองเช็คว่าถ้าสัปดาห์เป็น Week 2 จะมีไหม
+      if (!cfg && !activeSession.includes("Week 2") && CONFIG.SESSIONS && CONFIG.SESSIONS[1]) {
+        const altSafe = getSafeSessionKey(CONFIG.SESSIONS[1]);
+        return fetch(`${baseUrl}session_settings/${lockedCourseId}/${altSafe}/assignmentConfig.json`)
+          .then(r => r.json())
+          .then(altCfg => {
+            if (altCfg && altCfg.folderUrl) {
+              activeSession = CONFIG.SESSIONS[1];
+              updateWeekBadgeUI();
+              currentAssignmentConfig = altCfg;
+              startCountdown();
+            } else {
+              currentAssignmentConfig = null;
+              startCountdown();
+            }
+          });
+      }
+
       currentAssignmentConfig = cfg;
       startCountdown();
     })
@@ -80,7 +118,7 @@ function loadAssignmentConfig() {
     });
 }
 
-// ระบบตัวนับเวลาถอยหลัง
+// นับเวลาถอยหลัง / แจ้งสถานะการเปิดรับงาน
 function startCountdown() {
   if (timerInterval) clearInterval(timerInterval);
   const badge = document.getElementById('countdownBadge');
@@ -122,7 +160,7 @@ function startCountdown() {
     } else {
       const days = Math.floor(distance / (1000 * 60 * 60 * 24));
       const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((distance % (1000 * 60)) / (1000 * 60));
+      const minutes = Math.floor((distance % (1000 * 60)) / 1000);
       const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
       badge.innerText = `⏳ เหลือเวลาส่ง: ${days}วัน ${hours}ชม. ${minutes}นาที ${seconds}วินาที`;
@@ -134,15 +172,18 @@ function startCountdown() {
   }, 1000);
 }
 
-// จัดการการเลือกไฟล์
+// จัดการเลือกไฟล์
 function handleFileSelect(e) {
   if (e.target.files && e.target.files[0]) {
     selectedFile = e.target.files[0];
-    document.getElementById('dropzoneText').innerText = `✅ ไฟล์ที่เลือก: ${selectedFile.name} (${formatBytes(selectedFile.size)})`;
+    const dropText = document.getElementById('dropzoneText');
+    if (dropText) {
+      dropText.innerText = `✅ ไฟล์ที่เลือก: ${selectedFile.name} (${formatBytes(selectedFile.size)})`;
+    }
   }
 }
 
-// อัปโหลดไฟล์เข้า Google Drive ผ่าน Apps Script
+// อัปโหลดไฟล์ส่งการบ้าน
 function uploadHomeworkFile() {
   const stId = document.getElementById('submitStudentId').value.trim();
 
@@ -151,8 +192,10 @@ function uploadHomeworkFile() {
   if (!currentAssignmentConfig || !currentAssignmentConfig.folderUrl) return alert("ยังไม่ได้เปิดรับส่งการบ้านสำหรับสัปดาห์นี้");
 
   const btn = document.getElementById('btnSubmitHomework');
-  btn.innerText = "กำลังอัปโหลดเข้า Google Drive...";
-  btn.disabled = true;
+  if (btn) {
+    btn.innerText = "กำลังอัปโหลดเข้า Google Drive...";
+    btn.disabled = true;
+  }
 
   const reader = new FileReader();
   reader.readAsDataURL(selectedFile);
@@ -187,17 +230,19 @@ function uploadHomeworkFile() {
     })
     .catch(err => {
       alert("❌ " + err.message);
-      btn.innerText = "🚀 อัปโหลดส่งการบ้านเดี๋ยวนี้";
-      btn.disabled = false;
+      if (btn) {
+        btn.innerText = "🚀 อัปโหลดส่งการบ้านเดี๋ยวนี้";
+        btn.disabled = false;
+      }
     });
   };
 }
 
-// บันทึกสถานะส่งงานลง Firebase
+// บันทึกผลส่งงาน
 function recordHomeworkSubmission(stId, fileUrl, fileSize) {
   const now = new Date();
   const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-  const safeSession = sanitizeKey(activeSession);
+  const safeSession = getSafeSessionKey(activeSession);
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
 
   return fetch(`${baseUrl}attendance/${lockedCourseId}/${safeSession}/${stId}.json`, {
