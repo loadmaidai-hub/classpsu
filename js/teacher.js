@@ -1,105 +1,56 @@
-// js/teacher.js - ตรรกะหน้าจอสดห้องเรียน (อาจารย์)
+// js/teacher.js - แก้ไขปัญหาการเด้ง Week อัตโนมัติ ยึดค่าตาม Firebase เสมอ
 
-let secondsLeft = CONFIG.PIN_LIFETIME;
+let secondsLeft = (typeof CONFIG !== 'undefined' && CONFIG.PIN_LIFETIME) ? CONFIG.PIN_LIFETIME : 120;
 let timerInterval = null;
-let currentSession = CONFIG.SESSIONS[0];
+let currentSession = (typeof CONFIG !== 'undefined' && CONFIG.SESSIONS) ? CONFIG.SESSIONS[0] : "Week 1";
+let currentCourseId = '969-042G4';
+let allCoursesData = {};
+let currentCourseData = null;
+let currentRoster = {};
 let realtimeData = {};
-
-// ตารางตัดรอบสัปดาห์ใหม่ ทุกวันจันทร์ (เริ่ม 00:00 น. หลังปิดรับงานคืนวันอาทิตย์)
-const SESSION_DATES = [
-  new Date(2026, 8, 14, 0, 0, 0), // Week 1: เริ่มจันทร์ 14 ก.ย. 2569
-  new Date(2026, 8, 21, 0, 0, 0), // Week 2: เริ่มจันทร์ 21 ก.ย. 2569
-  new Date(2026, 8, 28, 0, 0, 0), // Week 3: เริ่มจันทร์ 28 ก.ย. 2569
-  new Date(2026, 9, 5, 0, 0, 0),  // Week 4: เริ่มจันทร์ 5 ต.ค. 2569
-  new Date(2026, 9, 12, 0, 0, 0), // Week 5: เริ่มจันทร์ 12 ต.ค. 2569
-  new Date(2026, 9, 19, 0, 0, 0), // Week 6: เริ่มจันทร์ 19 ต.ค. 2569
-  new Date(2026, 9, 26, 0, 0, 0), // Week 7: เริ่มจันทร์ 26 ต.ค. 2569
-  new Date(2026, 10, 2, 0, 0, 0), // Week 8: เริ่มจันทร์ 2 พ.ย. 2569
-  new Date(2026, 10, 9, 0, 0, 0), // Week 9: เริ่มจันทร์ 9 พ.ย. 2569
-  new Date(2026, 10, 16, 0, 0, 0),// Week 10: เริ่มจันทร์ 16 พ.ย. 2569
-  new Date(2026, 10, 23, 0, 0, 0) // Week 11: เริ่มจันทร์ 23 พ.ย. 2569
-];
-
-function checkAndAutoSetSession() {
-  fetch(`${CONFIG.FIREBASE_DB_URL}current_session.json`)
-    .then(r => r.json())
-    .then(serverSession => {
-      const today = new Date();
-      
-      // หา Week ล่าสุดตามวันจันทร์ที่ผ่านมาถึง
-      let autoIndex = 0;
-      for (let i = 0; i < SESSION_DATES.length; i++) {
-        if (today >= SESSION_DATES[i]) {
-          autoIndex = i;
-        }
-      }
-      const calculatedSession = CONFIG.SESSIONS[autoIndex];
-
-      if (!serverSession) {
-        currentSession = calculatedSession;
-        document.getElementById('leftSessionSelect').value = currentSession;
-        changeSession();
-      } else {
-        currentSession = serverSession;
-        document.getElementById('leftSessionSelect').value = currentSession;
-        if (document.getElementById('sideSessionSelect')) {
-          document.getElementById('sideSessionSelect').value = currentSession;
-        }
-        document.getElementById('sessionTitle').innerText = `${currentSession} (ห้อง 6310)`;
-      }
-      renderLeaderboard();
-    })
-    .catch(() => {
-      renderLeaderboard();
-    });
-}
+let isSpinning = false;
 
 function init() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const paramCourse = urlParams.get('course');
+  const cachedCourse = localStorage.getItem('lastSelectedCourse');
+  currentCourseId = paramCourse || cachedCourse || '969-042G4';
+
   const leftSel = document.getElementById('leftSessionSelect');
   const sideSel = document.getElementById('sideSessionSelect');
   
-  const optionsHtml = CONFIG.SESSIONS.map(s => `<option value="${s}">📅 ${s}</option>`).join('');
-  if (leftSel) leftSel.innerHTML = optionsHtml;
-  if (sideSel) sideSel.innerHTML = optionsHtml;
+  if (typeof CONFIG !== 'undefined' && CONFIG.SESSIONS) {
+    const optionsHtml = CONFIG.SESSIONS.map(s => `<option value="${s}">📅 ${s}</option>`).join('');
+    if (leftSel) leftSel.innerHTML = optionsHtml;
+    if (sideSel) sideSel.innerHTML = optionsHtml;
+  }
 
-  // ตรวจสอบและตั้งสัปดาห์แบบ Hybrid (รีเซ็ตตามวันพุธอัตโนมัติ + รองรับอาจารย์ปรับเอง)
-  checkAndAutoSetSession();
-
+  loadCoursesAndRoster();
+  fetchCurrentSession(); // ดึงสัปดาห์ปัจจุบันจาก Firebase โดยไม่คำนวณทับ
   generatePIN();
   startTimer();
-  fetchData();
   setInterval(fetchData, 3000);
 }
 
-// 1. ตรวจสอบสัปดาห์อัตโนมัติตามวันพุธ และซิงก์กับ Firebase
-function checkAndAutoSetSession() {
-  fetch(`${CONFIG.FIREBASE_DB_URL}current_session.json`)
+// 1. โหลดสัปดาห์เรียนจริงจาก Firebase (ไม่คำนวณวันเวลาเขียนทับอัตโนมัติ)
+function fetchCurrentSession() {
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+
+  fetch(`${baseUrl}current_session.json`)
     .then(r => r.json())
     .then(serverSession => {
-      const today = new Date();
-      
-      // หา Week ล่าสุดตามวันที่จริง
-      let autoIndex = 0;
-      for (let i = 0; i < SESSION_DATES.length; i++) {
-        if (today >= SESSION_DATES[i]) {
-          autoIndex = i;
-        }
-      }
-      const calculatedSession = CONFIG.SESSIONS[autoIndex];
-
-      // ถ้าเซิร์ฟเวอร์ยังไม่มีค่า หรือสัปดาห์ในปฏิทินขยับขึ้นสัปดาห์ใหม่
-      if (!serverSession) {
-        currentSession = calculatedSession;
-        document.getElementById('leftSessionSelect').value = currentSession;
-        changeSession();
-      } else {
+      if (serverSession) {
         currentSession = serverSession;
-        document.getElementById('leftSessionSelect').value = currentSession;
-        if (document.getElementById('sideSessionSelect')) {
-          document.getElementById('sideSessionSelect').value = currentSession;
-        }
-        document.getElementById('sessionTitle').innerText = `${currentSession} (ห้อง 6310)`;
       }
+      
+      const leftSel = document.getElementById('leftSessionSelect');
+      const sideSel = document.getElementById('sideSessionSelect');
+      if (leftSel) leftSel.value = currentSession;
+      if (sideSel) sideSel.value = currentSession;
+      
+      const titleEl = document.getElementById('sessionTitle');
+      if (titleEl) titleEl.innerText = `${currentSession}`;
+      
       renderLeaderboard();
     })
     .catch(() => {
@@ -107,15 +58,76 @@ function checkAndAutoSetSession() {
     });
 }
 
-// 2. สุ่ม PIN 4 หลัก และอัปเดตลง Firebase
+// 2. โหลดข้อมูลรายวิชาและรายชื่อนักศึกษาจาก Firebase
+function loadCoursesAndRoster() {
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+  
+  fetch(`${baseUrl}courses.json`)
+    .then(r => r.json())
+    .then(courses => {
+      allCoursesData = courses || {};
+      
+      if (!allCoursesData[currentCourseId]) {
+        currentCourseId = Object.keys(allCoursesData)[0] || '969-042G4';
+      }
+
+      localStorage.setItem('lastSelectedCourse', currentCourseId);
+      currentCourseData = allCoursesData[currentCourseId];
+
+      if (currentCourseData) {
+        currentRoster = currentCourseData.roster || {};
+
+        const titleEl = document.getElementById('sessionTitle');
+        if (titleEl) titleEl.innerText = `${currentSession}`;
+
+        const subEl = document.getElementById('sessionSubtitle');
+        if (subEl) {
+          const time = currentCourseData.dayTime ? `ทุกวัน${currentCourseData.dayTime} น.` : 'ทุกวันพุธ 10.30 - 12.20 น.';
+          subEl.innerText = `${currentCourseData.courseId} ${currentCourseData.courseName} | ${time}`;
+        }
+
+        const badgeText = document.getElementById('urlBadgeText');
+        if (badgeText) {
+          badgeText.innerText = `🌐 CLASSROOM: ${currentCourseId}`;
+        }
+
+        const slotTitleEl = document.getElementById('slotModalTitle');
+        if (slotTitleEl) {
+          slotTitleEl.innerText = `⭐ ${currentCourseId} LUCKY DRAW ⭐`;
+        }
+      }
+
+      updateDynamicQRCode();
+      fetchData();
+    })
+    .catch(() => {
+      updateDynamicQRCode();
+      fetchData();
+    });
+}
+
+function updateDynamicQRCode() {
+  const qrImg = document.getElementById('qrCodeImg');
+  if (!qrImg) return;
+  const currentPath = window.location.pathname;
+  const basePath = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
+  const targetUrl = `${window.location.origin}${basePath}index.html?course=${encodeURIComponent(currentCourseId)}`;
+  qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(targetUrl)}`;
+}
+
+// 3. สุ่ม PIN 4 หลัก
 function generatePIN() {
   const pin = Math.floor(1000 + Math.random() * 9000).toString();
-  document.getElementById('pinBase').innerText = pin;
-  document.getElementById('pinFill').innerText = pin;
-  secondsLeft = CONFIG.PIN_LIFETIME;
+  const pinBase = document.getElementById('pinBase');
+  const pinFill = document.getElementById('pinFill');
+  if (pinBase) pinBase.innerText = pin;
+  if (pinFill) pinFill.innerText = pin;
+
+  secondsLeft = (typeof CONFIG !== 'undefined' && CONFIG.PIN_LIFETIME) ? CONFIG.PIN_LIFETIME : 120;
   updateTimerUI();
 
-  fetch(`${CONFIG.FIREBASE_DB_URL}current_pin.json`, {
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+  fetch(`${baseUrl}session_settings/${currentCourseId}/live_pin.json`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(pin)
@@ -126,7 +138,7 @@ function forceResetPIN() {
   generatePIN(); 
 }
 
-// 3. ตัวนับเวลาถอยหลัง 2 นาที (120 วินาที)
+// 4. ตัวนับเวลาถอยหลัง PIN (อนิเมชัน Mask Layer 2 ชั้น)
 function startTimer() {
   if (timerInterval) clearInterval(timerInterval);
   timerInterval = setInterval(() => {
@@ -137,32 +149,40 @@ function startTimer() {
 }
 
 function updateTimerUI() {
-  const pct = Math.max(0, (secondsLeft / CONFIG.PIN_LIFETIME) * 100);
+  const lifetime = (typeof CONFIG !== 'undefined' && CONFIG.PIN_LIFETIME) ? CONFIG.PIN_LIFETIME : 120;
+  const pct = Math.max(0, (secondsLeft / lifetime) * 100);
   const m = Math.floor(secondsLeft / 60);
   const s = secondsLeft % 60;
   const str = `${m}:${s < 10 ? '0' : ''}${s}`;
 
-  document.getElementById('badgeBase').innerText = str;
-  document.getElementById('badgeFill').innerText = str;
-  document.getElementById('pinFillLayer').style.width = `${pct}%`;
+  const badgeBase = document.getElementById('badgeBase');
+  const badgeFill = document.getElementById('badgeFill');
+  const pinFillLayer = document.getElementById('pinFillLayer');
+
+  if (badgeBase) badgeBase.innerText = str;
+  if (badgeFill) badgeFill.innerText = str;
+  if (pinFillLayer) pinFillLayer.style.width = `${pct}%`;
 }
 
-// 4. สลับสัปดาห์เมื่ออาจารย์เลือกเปลี่ยนเอง (Manual Override)
+// 5. สลับสัปดาห์ (จะบันทึกลง Firebase เฉพาะเมื่ออาจารย์เป็นคนเลือกเปลี่ยนเองเท่านั้น)
 function syncFromSideDropdown() {
   const val = document.getElementById('sideSessionSelect').value;
-  document.getElementById('leftSessionSelect').value = val;
+  if (document.getElementById('leftSessionSelect')) document.getElementById('leftSessionSelect').value = val;
   changeSession();
 }
 
 function changeSession() {
-  currentSession = document.getElementById('leftSessionSelect').value;
+  const leftSel = document.getElementById('leftSessionSelect');
+  if (leftSel) currentSession = leftSel.value;
   if (document.getElementById('sideSessionSelect')) {
     document.getElementById('sideSessionSelect').value = currentSession;
   }
-  document.getElementById('sessionTitle').innerText = `${currentSession} (ห้อง 6310)`;
   
-  // บันทึกทับลง Firebase เมื่ออาจารย์เลือกเปลี่ยนสัปดาห์
-  fetch(`${CONFIG.FIREBASE_DB_URL}current_session.json`, {
+  const titleEl = document.getElementById('sessionTitle');
+  if (titleEl) titleEl.innerText = `${currentSession}`;
+  
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+  fetch(`${baseUrl}current_session.json`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(currentSession)
@@ -171,26 +191,29 @@ function changeSession() {
   renderLeaderboard();
 }
 
-// 5. ดึงข้อมูลบันทึกคะแนนและการเข้าเรียนแบบ Real-time
+// 6. ดึงข้อมูลคะแนนและการเช็คชื่อแบบสด
 function fetchData() {
-  fetch(`${CONFIG.FIREBASE_DB_URL}attendance.json`)
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+  fetch(`${baseUrl}attendance/${currentCourseId}.json`)
     .then(r => r.json())
     .then(d => {
       realtimeData = d || {};
       renderLeaderboard();
-    });
+    })
+    .catch(() => {});
 }
 
-// 6. แสดงผลตารางอันดับสด (Leaderboard) ทางขวามือ
+// 7. เรนเดอร์กระดานคะแนนฝั่งขวา (🥇 🥈 🥉)
 function renderLeaderboard() {
   const safe = sanitizeKey(currentSession);
   const records = realtimeData[safe] || {};
   const tbody = document.getElementById('sideTableBody');
   if (!tbody) return;
 
-  let list = Object.keys(STUDENT_ROSTER).map(id => ({
+  const rosterIds = Object.keys(currentRoster);
+  let list = rosterIds.map(id => ({
     id,
-    name: STUDENT_ROSTER[id],
+    name: currentRoster[id],
     rec: records[id],
     score: records[id] && records[id].status !== 'LEAVE' ? (records[id].score || 0) : -1
   })).sort((a, b) => b.score - a.score);
@@ -199,36 +222,119 @@ function renderLeaderboard() {
   tbody.innerHTML = '';
 
   list.forEach((st, i) => {
-    let rankBadge = `<span class="rank-badge">#${i + 1}</span>`;
-    if (st.rec) {
+    const isSubmitted = st.rec && (st.rec.fileUrl || st.rec.status === 'PRESENT');
+    if (isSubmitted) {
       submitted++;
-      if (i === 0) rankBadge = '🥇';
-      if (i === 1) rankBadge = '🥈';
-      if (i === 2) rankBadge = '🥉';
+    }
+
+    let rankDisplay = `<span class="rank-badge">#${i + 1}</span>`;
+    if (isSubmitted) {
+      if (i === 0) rankDisplay = `<span style="font-size: 1.25rem;">🥇</span>`;
+      else if (i === 1) rankDisplay = `<span style="font-size: 1.25rem;">🥈</span>`;
+      else if (i === 2) rankDisplay = `<span style="font-size: 1.25rem;">🥉</span>`;
     }
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${rankBadge}</td>
+      <td style="vertical-align: middle;">${rankDisplay}</td>
       <td>
         <div class="student-meta-name">${st.name}</div>
         <div class="student-meta-id">${st.id}</div>
       </td>
       <td style="text-align:center;">
-        <span class="${st.rec ? 'tag-submitted' : 'tag-waiting'}">${st.rec ? 'ส่งแล้ว' : 'ยังไม่ส่ง'}</span>
+        <span class="${isSubmitted ? 'tag-submitted' : 'tag-waiting'}">${isSubmitted ? 'ส่งแล้ว' : 'ยังไม่ส่ง'}</span>
       </td>
       <td style="text-align:right;">
-        <span class="score-text">${st.rec ? (st.score > -1 ? st.score + ' แต้ม' : '-') : '-'}</span>
+        <span class="score-text">${st.rec && st.score > -1 ? st.score + ' แต้ม' : '-'}</span>
       </td>
     `;
     tbody.appendChild(tr);
   });
 
   const submittedCounter = document.getElementById('submittedCount');
-  if (submittedCounter) {
-    submittedCounter.innerText = submitted;
-  }
+  if (submittedCounter) submittedCounter.innerText = submitted;
+
+  const totalEl = document.getElementById('totalStudentsCount');
+  if (totalEl) totalEl.innerText = rosterIds.length;
 }
 
-// เริ่มต้นการทำงาน
-init();
+// 8. ควบคุม Modal สลับวิชา
+function openCourseSwitchModal() {
+  const sel = document.getElementById('switchCourseSelect');
+  sel.innerHTML = Object.keys(allCoursesData).map(cid => `
+    <option value="${cid}" ${cid === currentCourseId ? 'selected' : ''}>${cid} - ${allCoursesData[cid].courseName}</option>
+  `).join('');
+  document.getElementById('courseSwitchModal').style.display = 'flex';
+}
+
+function closeCourseSwitchModal() {
+  document.getElementById('courseSwitchModal').style.display = 'none';
+}
+
+function confirmCourseSwitch() {
+  currentCourseId = document.getElementById('switchCourseSelect').value;
+  localStorage.setItem('lastSelectedCourse', currentCourseId);
+  closeCourseSwitchModal();
+  loadCoursesAndRoster();
+}
+
+// 9. ควบคุม Modal สล็อต 3 หลัก
+function openSlotModal() {
+  document.getElementById('slotModal').style.display = 'flex';
+}
+
+function closeSlotModal() {
+  document.getElementById('slotModal').style.display = 'none';
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" || e.key === "Esc") {
+    closeSlotModal();
+    closeCourseSwitchModal();
+  }
+});
+
+function spinLotto() {
+  if (isSpinning) return;
+
+  const validIds = Object.keys(currentRoster).filter(id => id !== "0000");
+  if (validIds.length === 0) return alert("ไม่มีรายชื่อนักศึกษาในวิชานี้");
+
+  isSpinning = true;
+  const r1 = document.getElementById('reel1');
+  const r2 = document.getElementById('reel2');
+  const r3 = document.getElementById('reel3');
+  const nameBox = document.getElementById('winnerName');
+  const idBox = document.getElementById('winnerId');
+  const btn = document.getElementById('btnSpin');
+
+  btn.disabled = true;
+  nameBox.innerText = "กำลังหมุนวงล้อ...";
+  idBox.innerText = "รหัสนักศึกษา: ???";
+
+  let counter = 0;
+  const spinInt = setInterval(() => {
+    r1.innerText = Math.floor(Math.random() * 10);
+    r2.innerText = Math.floor(Math.random() * 10);
+    r3.innerText = Math.floor(Math.random() * 10);
+    counter++;
+
+    if (counter > 25) {
+      clearInterval(spinInt);
+      
+      const winnerId = validIds[Math.floor(Math.random() * validIds.length)];
+      const last3 = winnerId.slice(-3);
+
+      r1.innerText = last3[0] || '0';
+      r2.innerText = last3[1] || '0';
+      r3.innerText = last3[2] || '0';
+
+      nameBox.innerText = `🎉 ${currentRoster[winnerId]}`;
+      idBox.innerText = `รหัสนักศึกษา: ${winnerId}`;
+      isSpinning = false;
+      btn.disabled = false;
+    }
+  }, 70);
+}
+
+document.addEventListener("DOMContentLoaded", init);
