@@ -1,260 +1,222 @@
-let targetDeadline = null;
-let currentSession = CONFIG.SESSIONS[0];
-let selectedFile = null;
-let currentFolderUrl = null;
-let isDeadlinePassed = false;
+// js/submit.js - ล็อกวิชาและสัปดาห์ส่งงานตรงตาม Firebase เสมอ
 
-function init() {
-  // รับรหัสผ่าน URL กรณีส่งต่อมาจากหน้าตอบควิซ (index.html?id=...)
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('id')) {
-    document.getElementById('stuId').value = urlParams.get('id');
-  }
+let lockedCourseId = null;
+let activeSession = (typeof CONFIG !== 'undefined' && CONFIG.SESSIONS) ? CONFIG.SESSIONS[0] : "Week 2";
+let activeRoster = {};
+let currentAssignmentConfig = null;
+let timerInterval = null;
 
-  fetch(`${CONFIG.FIREBASE_DB_URL}current_session.json`)
+document.addEventListener("DOMContentLoaded", () => {
+  initSubmitApp();
+});
+
+function initSubmitApp() {
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+
+  // 1. ดึงสัปดาห์เรียนปัจจุบันจริงจาก Firebase
+  fetch(`${baseUrl}current_session.json`)
     .then(r => r.json())
-    .then(s => {
-      if (s) currentSession = s;
-      document.getElementById('sessionLabel').innerText = currentSession;
-      previewName();
-      loadAssignmentSettings();
+    .then(session => {
+      if (session) {
+        activeSession = session;
+      }
+      
+      const sessionDisplay = document.querySelector('.projector-title, #submitSessionText, [id*="Session"]');
+      if (sessionDisplay) {
+        sessionDisplay.innerText = `${activeSession}`;
+      }
+      
+      // อัปเดตข้อความสัปดาห์มุมขวาบน
+      const topWeekLabel = document.querySelector('.right-header, .submit-counter, [class*="week"]');
+      
+      return fetch(`${baseUrl}courses.json`);
+    })
+    .then(r => r.json())
+    .then(courses => {
+      const allCourses = courses || {};
+      const urlParams = new URLSearchParams(window.location.search);
+      const paramCourse = urlParams.get('course');
+      const cachedCourse = localStorage.getItem('lockedCourseId') || localStorage.getItem('lastSelectedCourse');
+
+      lockedCourseId = paramCourse || cachedCourse || Object.keys(allCourses)[0];
+      localStorage.setItem('lockedCourseId', lockedCourseId);
+
+      const course = allCourses[lockedCourseId];
+      if (course) {
+        activeRoster = course.roster || {};
+        const badge = document.getElementById('lockedCourseBadge');
+        if (badge) badge.innerText = `📚 วิชา: [${course.courseId}] ${course.courseName}`;
+        
+        const backLink = document.getElementById('backToCheckinLink');
+        if (backLink) backLink.href = `index.html?course=${encodeURIComponent(lockedCourseId)}`;
+      }
+
+      loadAssignmentConfig();
+    })
+    .catch(() => {
+      loadAssignmentConfig();
     });
-    setupDragAndDrop();
 }
 
-function loadAssignmentSettings() {
-  const safe = sanitizeKey(currentSession);
-  fetch(`${CONFIG.FIREBASE_DB_URL}session_settings/${safe}/assignmentConfig.json`)
+function checkSubmitStudentId() {
+  const stId = document.getElementById('submitStudentId').value.trim();
+  const nameBox = document.getElementById('submitStudentName');
+  if (!nameBox) return;
+
+  if (activeRoster[stId]) {
+    nameBox.innerText = `👤 ${activeRoster[stId]}`;
+    nameBox.style.color = '#059669';
+  } else if (stId.length >= 4) {
+    nameBox.innerText = `❌ ไม่พบรหัสในวิชานี้`;
+    nameBox.style.color = '#DC2626';
+  } else {
+    nameBox.innerText = '';
+  }
+}
+
+function loadAssignmentConfig() {
+  const safeSession = sanitizeKey(activeSession);
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+
+  fetch(`${baseUrl}session_settings/${lockedCourseId}/${safeSession}/assignmentConfig.json`)
     .then(r => r.json())
     .then(cfg => {
-      currentFolderUrl = cfg ? cfg.folderUrl : null;
-
-      if (cfg && cfg.deadline) {
-        targetDeadline = new Date(cfg.deadline).getTime();
-        checkDeadline();
-        setInterval(checkDeadline, 1000);
-      } else {
-        document.getElementById('countdownBadge').innerText = "ไม่ได้กำหนดเวลาปิดรับ";
-      }
+      currentAssignmentConfig = cfg;
+      startCountdown();
     });
 }
 
-function checkDeadline() {
-  if (!targetDeadline) return;
-  const now = new Date().getTime();
-  const diff = targetDeadline - now;
-  const cd = document.getElementById('countdownBadge');
-  const btn = document.getElementById('btnUpload');
+function startCountdown() {
+  if (timerInterval) clearInterval(timerInterval);
+  const badge = document.getElementById('countdownBadge');
+  const btn = document.getElementById('btnSubmitHomework');
 
-  if (diff <= 0) {
-    isDeadlinePassed = true;
-    cd.innerText = "⛔ หมดเวลาส่งงาน";
-    cd.className = "tag tag-absent";
-    if (btn) {
-      btn.disabled = true;
-      btn.className = "btn-action btn-disabled";
-    }
-    const lockNotice = document.getElementById('lockNotice');
-    if (lockNotice) lockNotice.style.display = "block";
-  } else {
-    isDeadlinePassed = false;
-    
-    // คำนวณ วัน, ชั่วโมง, นาที, วินาที
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+  if (!badge) return;
 
-    // ถ้ามีวันเหลือให้แสดงจำนวนวันนำหน้า เช่น "⏳ เหลือเวลา: 6วัน 10ชม. 8น. 47วิ."
-    if (days > 0) {
-      cd.innerText = `⏳ เหลือเวลา: ${days}วัน ${hours}ชม. ${minutes}น. ${seconds}วิ.`;
-    } else {
-      cd.innerText = `⏳ เหลือเวลา: ${hours}ชม. ${minutes}น. ${seconds}วิ.`;
-    }
-  }
-}
-
-function previewName() {
-  const id = document.getElementById('stuId').value.trim();
-  document.getElementById('stuName').value = STUDENT_ROSTER[id] || "";
-  validateCurrentFile();
-}
-
-function handleFileSelected(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  selectedFile = file;
-  document.getElementById('fileUploadPrompt').innerText = `📄 ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`;
-  validateCurrentFile();
-}
-
-function validateCurrentFile() {
-  if (!selectedFile) return;
-
-  const id = document.getElementById('stuId').value.trim();
-  const studentName = STUDENT_ROSTER[id];
-  const valBox = document.getElementById('validationBox');
-  const btn = document.getElementById('btnUpload');
-
-  valBox.style.display = 'block';
-
-  if (!studentName) {
-    valBox.className = "validation-status status-error";
-    valBox.innerHTML = `⚠️ กรุณากรอกรหัสนักศึกษา 10 หลักให้ถูกต้องก่อนเลือกไฟล์`;
-    btn.disabled = true;
-    btn.className = "btn-action btn-disabled";
+  if (!currentAssignmentConfig || !currentAssignmentConfig.folderUrl) {
+    badge.innerText = "⚠️ สัปดาห์นี้ยังไม่เปิดรับการบ้าน (ไม่มีลิงก์โฟลเดอร์)";
+    badge.style.background = "#FEE2E2";
+    badge.style.borderColor = "#FECACA";
+    badge.style.color = "#DC2626";
+    if (btn) btn.disabled = true;
     return;
   }
 
-  const extIndex = selectedFile.name.lastIndexOf('.');
-  const ext = extIndex !== -1 ? selectedFile.name.substring(extIndex) : '';
-  const currentFileNameWithoutExt = extIndex !== -1 ? selectedFile.name.substring(0, extIndex) : selectedFile.name;
-
-  const expectedNameClean = `${id}-${studentName}`.replace(/\s+/g, '');
-  const actualNameClean = currentFileNameWithoutExt.replace(/\s+/g, '');
-
-  if (actualNameClean === expectedNameClean) {
-    valBox.className = "validation-status status-success";
-    valBox.innerHTML = `✓ ชื่อไฟล์ถูกต้อง: <strong>${selectedFile.name}</strong> พร้อมส่ง`;
-    if (!isDeadlinePassed) {
-      btn.disabled = false;
-      btn.className = "btn-action";
-      btn.style.background = "#4338CA";
-      btn.style.color = "white";
-    }
-  } else {
-    const properFullName = `${id} - ${studentName}${ext}`;
-    valBox.className = "validation-status status-error";
-    valBox.innerHTML = `
-      ❌ <strong>ชื่อไฟล์ไม่ถูกต้องตามรูปแบบ!</strong><br>
-      ชื่อปัจจุบัน: <span style="font-family:monospace;">${selectedFile.name}</span><br>
-      ชื่อที่ถูกต้อง: <span style="font-family:monospace; font-weight:700;">${properFullName}</span>
-      <div style="margin-top:0.6rem;">
-        <button type="button" onclick="downloadCorrectlyNamedFile('${properFullName}')" style="background:#4338CA; color:white; border:none; padding:0.4rem 0.8rem; border-radius:8px; font-size:0.8rem; font-weight:700; cursor:pointer;">
-          ⚡ แก้ชื่อไฟล์และดาวน์โหลดใหม่ให้ตรง
-        </button>
-      </div>
-    `;
-    btn.disabled = true;
-    btn.className = "btn-action btn-disabled";
+  if (!currentAssignmentConfig.deadline) {
+    badge.innerText = "ไม่ได้กำหนดเวลาปิดรับ";
+    badge.style.background = "#D1FAE5";
+    badge.style.borderColor = "#A7F3D0";
+    badge.style.color = "#065F46";
+    if (btn) btn.disabled = false;
+    return;
   }
-}
 
-function setupDragAndDrop() {
-  const dropZone = document.getElementById('dropZone');
-  if (!dropZone) return;
+  const deadlineTime = new Date(currentAssignmentConfig.deadline).getTime();
 
-  // ป้องกันค่าเริ่มต้นของเบราว์เซอร์ไม่ให้เปิดไฟล์ขึ้นมาตรงๆ
-  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-    dropZone.addEventListener(eventName, (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-    }, false);
-  });
+  timerInterval = setInterval(() => {
+    const now = new Date().getTime();
+    const distance = deadlineTime - now;
 
-  // ใส่เอฟเฟกต์สีกล่องเมื่อลากไฟล์เข้ามา
-  ['dragenter', 'dragover'].forEach(eventName => {
-    dropZone.addEventListener(eventName, () => {
-      dropZone.classList.add('drag-over');
-    }, false);
-  });
+    if (distance < 0) {
+      clearInterval(timerInterval);
+      badge.innerText = "🔒 ปิดรับส่งการบ้านแล้ว (หมดเวลาส่ง)";
+      badge.style.background = "#FEE2E2";
+      badge.style.borderColor = "#FECACA";
+      badge.style.color = "#DC2626";
+      if (btn) btn.disabled = true;
+    } else {
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
-  // เอฟเฟกต์กลับคืนเมื่อลากไฟล์ออกไป หรือปล่อยไฟล์แล้ว
-  ['dragleave', 'drop'].forEach(eventName => {
-    dropZone.addEventListener(eventName, () => {
-      dropZone.classList.remove('drag-over');
-    }, false);
-  });
-
-  // ดักจับไฟล์เมื่อผู้ใช้ปล่อยไฟล์ลงในกล่อง
-  dropZone.addEventListener('drop', (e) => {
-    const dt = e.dataTransfer;
-    const files = dt.files;
-    if (files && files.length > 0) {
-      selectedFile = files[0];
-      document.getElementById('fileUploadPrompt').innerText = `📄 ${selectedFile.name} (${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB)`;
-      validateCurrentFile();
+      badge.innerText = `⏳ เหลือเวลาส่ง: ${days}วัน ${hours}ชม. ${minutes}นาที ${seconds}วินาที`;
+      badge.style.background = "#FEF3C7";
+      badge.style.borderColor = "#FCD34D";
+      badge.style.color = "#92400E";
+      if (btn) btn.disabled = false;
     }
-  }, false);
+  }, 1000);
 }
 
-function downloadCorrectlyNamedFile(properName) {
-  if (!selectedFile) return;
-  const newFileBlob = new Blob([selectedFile], { type: selectedFile.type });
-  const downloadUrl = URL.createObjectURL(newFileBlob);
-  const a = document.createElement('a');
-  a.href = downloadUrl;
-  a.download = properName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(downloadUrl);
-  alert(`ระบบดาวน์โหลดไฟล์ "${properName}" ให้แล้ว โปรดเลือกไฟล์นี้เพื่อส่งอีกครั้ง`);
-}
+function uploadHomeworkFile() {
+  const stId = document.getElementById('submitStudentId').value.trim();
+  const fileInput = document.getElementById('homeworkFile');
 
-// อ่านไฟล์เป็น Base64 แล้วยิงตรงไปยัง Google Apps Script
-function uploadToGoogleDrive() {
-  if (isDeadlinePassed) return alert("หมดเวลาส่งงาน ไม่สามารถอัปโหลดได้");
-  if (!currentFolderUrl) return alert("อาจารย์ยังไม่ได้ผูกโฟลเดอร์ส่งงานประจำสัปดาห์นี้");
+  if (!activeRoster[stId]) return alert("กรุณาตรวจสอบรหัสนักศึกษา");
+  if (!fileInput.files || fileInput.files.length === 0) return alert("กรุณาเลือกไฟล์การบ้าน");
 
-  const id = document.getElementById('stuId').value.trim();
-  const name = STUDENT_ROSTER[id];
-  const btn = document.getElementById('btnUpload');
-  const loading = document.getElementById('loadingStatus');
-
-  btn.disabled = true;
-  btn.style.display = "none";
-  loading.style.display = "block";
+  const file = fileInput.files[0];
+  const btn = document.getElementById('btnSubmitHomework');
+  if (btn) {
+    btn.innerText = "กำลังอัปโหลดเข้า Google Drive...";
+    btn.disabled = true;
+  }
 
   const reader = new FileReader();
-  reader.readAsDataURL(selectedFile);
+  reader.readAsDataURL(file);
   reader.onload = function () {
     const base64Data = reader.result.split(',')[1];
-    
+    const fileExt = file.name.split('.').pop();
+    const cleanStudentName = activeRoster[stId].replace(/\s+/g, '_');
+    const newFileName = `${stId}_${cleanStudentName}_${activeSession}.${fileExt}`;
+
     const payload = {
-      folderUrl: currentFolderUrl,
-      fileName: selectedFile.name,
+      folderUrl: currentAssignmentConfig.folderUrl,
+      fileName: newFileName,
       fileData: base64Data,
-      mimeType: selectedFile.type || 'application/octet-stream'
+      mimeType: file.type || "application/octet-stream"
     };
 
-    fetch(CONFIG.GAS_UPLOAD_URL, {
+    fetch(CONFIG.SCRIPT_URL, {
       method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(payload)
     })
     .then(r => r.json())
     .then(res => {
-      loading.style.display = "none";
-
       if (res.status === "success") {
-        const safeSession = sanitizeKey(currentSession);
-        fetch(`${CONFIG.FIREBASE_DB_URL}attendance/${safeSession}/${id}.json`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fileName: selectedFile.name,
-            fileUrl: res.fileUrl,
-            fileSize: (selectedFile.size / (1024 * 1024)).toFixed(2) + ' MB',
-            submittedTime: new Date().toLocaleTimeString('th-TH')
-          })
-        }).then(() => {
-          alert(`✓ ส่งงานเรียบร้อยแล้ว!\nไฟล์ "${selectedFile.name}" ถูกบันทึกเข้าโฟลเดอร์ของอาจารย์แล้ว`);
-          location.reload();
-        });
+        return recordHomeworkSubmission(stId, res.fileUrl, formatBytes(file.size));
       } else {
-        alert("เกิดข้อผิดพลาดจาก Google Drive: " + res.message);
-        btn.disabled = false;
-        btn.style.display = "block";
+        throw new Error(res.message || "การอัปโหลดไฟล์ล้มเหลว");
       }
     })
+    .then(() => {
+      alert(`✓ ส่งการบ้านวิชา [${lockedCourseId}] สัปดาห์ [${activeSession}] เรียบร้อยแล้ว!`);
+      fileInput.value = '';
+    })
     .catch(err => {
-      loading.style.display = "none";
-      btn.disabled = false;
-      btn.style.display = "block";
-      alert("เกิดข้อผิดพลาดในการเชื่อมต่อ: " + err.message);
+      alert("❌ " + err.message);
+    })
+    .finally(() => {
+      if (btn) {
+        btn.innerText = "🚀 อัปโหลดส่งการบ้าน";
+        btn.disabled = false;
+      }
     });
   };
 }
 
-init();
+function recordHomeworkSubmission(stId, fileUrl, fileSize) {
+  const now = new Date();
+  const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const safeSession = sanitizeKey(activeSession);
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+
+  return fetch(`${baseUrl}attendance/${lockedCourseId}/${safeSession}/${stId}.json`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      fileUrl: fileUrl,
+      fileSize: fileSize,
+      submittedTime: timeStr
+    })
+  });
+}
+
+function formatBytes(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
