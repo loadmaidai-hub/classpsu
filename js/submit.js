@@ -121,7 +121,7 @@ function lookupStudentName() {
   const nameInput = document.getElementById('studentNameInput');
   const val = idInput.value.trim();
 
-  // 1. ค้นหาจาก STUDENT_ROSTER ใน config.js ก่อน
+  // 1. ค้นหาจาก STUDENT_ROSTER ใน config.js ก่อน (รวมรหัสเทส 1234567890)
   if (typeof STUDENT_ROSTER !== 'undefined' && STUDENT_ROSTER[val]) {
     nameInput.value = STUDENT_ROSTER[val];
     nameInput.readOnly = true;
@@ -272,7 +272,7 @@ async function submitHomework() {
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
 
   try {
-    // 1. ตรวจสอบใน Firebase ก่อนว่าเคยส่งงานในสัปดาห์นี้ไปแล้วหรือไม่
+    // 1. ตรวจสอบใน Firebase ก่อนว่าเคยส่งงานในสัปดาห์นี้ไปแล้วหรือไม่ (บล็อกการส่งซ้ำ)
     const checkRes = await fetch(`${baseUrl}attendance/${activeCourseId}/${safeSession}/${stId}.json`);
     const studentData = await checkRes.json();
 
@@ -283,11 +283,11 @@ async function submitHomework() {
       return;
     }
 
-    btn.innerText = "⏳ กำลังส่งไฟล์ตรงเข้า Google Drive...";
+    btn.innerText = "⏳ กำลังส่งไฟล์ตรงเข้าโฟลเดอร์...";
 
     const base64Data = await fileToBase64(currentUploadFile);
 
-    // 2. ส่งไฟล์เข้า Apps Script
+    // 2. ส่งไฟล์เข้า Google Apps Script
     const payload = {
       folderUrl: assignmentConfig.folderUrl,
       fileName: currentUploadFile.name,
@@ -302,7 +302,7 @@ async function submitHomework() {
       body: JSON.stringify(payload)
     });
 
-    // 3. บันทึกหลักฐานการส่งเข้า Firebase Attendance
+    // 3. บันทึกเฉพาะข้อมูลส่งงาน ไม่ทับเวลาเข้าเรียน (checkInTime)
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
@@ -310,7 +310,6 @@ async function submitHomework() {
       fileName: currentUploadFile.name,
       fileSize: `${(currentUploadFile.size / 1024 / 1024).toFixed(2)} MB`,
       submittedTime: timeStr,
-      timestamp: timeStr,
       fileUrl: assignmentConfig.folderUrl
     };
 
@@ -320,13 +319,13 @@ async function submitHomework() {
       body: JSON.stringify(attendancePayload)
     });
 
-    alert(`✅ ส่งการบ้านสำเร็จเรียบร้อย!\nไฟล์: ${currentUploadFile.name}\n(ระบบส่งตรงเข้าโฟลเดอร์ Google Drive ของอาจารย์เรียบร้อยแล้ว)`);
+    alert(`✅ ส่งการบ้านสำเร็จเรียบร้อย!\nไฟล์: ${currentUploadFile.name}\n(ระบบส่งตรงเข้าโฟลเดอร์ของอาจารย์เรียบร้อยแล้ว)`);
     window.location.reload();
 
   } catch (err) {
     console.error("Submit Error:", err);
     alert("❌ เกิดข้อผิดพลาดในการส่ง กรุณาลองใหม่อีกครั้ง");
     btn.disabled = false;
-    btn.innerText = "🚀 อัปโหลดส่งการบ้านเดี๋ยวนี้";
+    btn.innerText = "🚀 ส่งการบ้าน";
   }
 }
