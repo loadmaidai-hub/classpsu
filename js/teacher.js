@@ -112,21 +112,27 @@ function updateDynamicQRCode() {
   qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(targetUrl)}`;
 }
 
-function generatePIN() {
-  const pin = Math.floor(1000 + Math.random() * 9000).toString();
-  const pinBase = document.getElementById('pinBase');
-  const pinFill = document.getElementById('pinFill');
-  if (pinBase) pinBase.innerText = pin;
-  if (pinFill) pinFill.innerText = pin;
+function generateNewPin() {
+  // สุ่มเลข 4 หลัก
+  const newPin = Math.floor(1000 + Math.random() * 9000).toString();
+  
+  // แสดงผลบนหน้าจอทันที
+  const pinDisplay = document.getElementById('pinDisplay');
+  if (pinDisplay) pinDisplay.innerText = newPin;
 
-  secondsLeft = (typeof CONFIG !== 'undefined' && CONFIG.PIN_LIFETIME) ? CONFIG.PIN_LIFETIME : 120;
-  updateTimerUI();
-
+  // ส่งขึ้น Firebase เพื่อให้นักเรียนกรอกตรงกัน
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
-  fetch(`${baseUrl}session_settings/${currentCourseId}/live_pin.json`, {
+  
+  fetch(`${baseUrl}current_pin.json`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(pin)
+    body: JSON.stringify(newPin)
+  })
+  .then(() => {
+    console.log("PIN synced to Firebase:", newPin);
+  })
+  .catch(err => {
+    console.error("Error syncing PIN:", err);
   });
 }
 
