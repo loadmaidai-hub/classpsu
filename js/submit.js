@@ -3,6 +3,7 @@
 let currentSession = "Week 1";
 let activeCourseId = '969-042G4';
 let currentRoster = {};
+let allCoursesData = {};
 let assignmentConfig = null;
 let currentUploadFile = null;
 let countdownTimerInterval = null;
@@ -28,6 +29,7 @@ function initSubmitPage() {
     .then(r => r.json())
     .then(courses => {
       if (!courses) return;
+      allCoursesData = courses;
       const cKeys = Object.keys(courses);
       const savedCourse = localStorage.getItem('lastSelectedCourse');
       activeCourseId = (savedCourse && courses[savedCourse]) ? savedCourse : cKeys[0];
@@ -57,7 +59,7 @@ function loadSessionAssignmentConfig() {
     });
 }
 
-// อัปเดตสถานะและเวลานับถอยหลัง (Countdown)
+// แถบสถานะนับเวลาถอยหลัง (Countdown Timer)
 function updateAssignmentStatusUI() {
   const badge = document.getElementById('assignmentStatusBadge');
   const btn = document.getElementById('btnSubmitWork');
@@ -113,13 +115,13 @@ function updateAssignmentStatusUI() {
   }
 }
 
-// ค้นหาชื่อนักศึกษาแบบยืดหยุ่น (ป้องกันปัญหารหัสตกหล่น)
+// ตรวจหารหัสนักศึกษา (แก้ปัญหารหัสเทส 1234567890 และป้องกันปัญหากับนักศึกษาทุกคน)
 function lookupStudentName() {
   const idInput = document.getElementById('studentIdInput');
   const nameInput = document.getElementById('studentNameInput');
   const val = idInput.value.trim();
 
-  // 1. เคสพิเศษสำหรับทดสอบระบบ
+  // 1. เคสรหัสทดสอบระบบ
   if (val === "1234567890" || val === "0000") {
     nameInput.value = "ทดสอบระบบ";
     nameInput.readOnly = true;
@@ -127,7 +129,7 @@ function lookupStudentName() {
     return;
   }
 
-  // 2. ตรวจสอบในวิชาปัจจุบันก่อน
+  // 2. หาในวิชาปัจจุบัน
   if (val.length === 10 && currentRoster[val]) {
     nameInput.value = currentRoster[val];
     nameInput.readOnly = true;
@@ -135,8 +137,8 @@ function lookupStudentName() {
     return;
   }
 
-  // 3. หากค้นหาไม่พบในวิชาปัจจุบัน ให้ค้นหาจากทุกวิชาใน allCoursesData (ถ้ามี)
-  if (val.length === 10 && typeof allCoursesData !== 'undefined') {
+  // 3. หาจากทุกวิชา
+  if (val.length === 10 && allCoursesData) {
     for (let cId in allCoursesData) {
       if (allCoursesData[cId].roster && allCoursesData[cId].roster[val]) {
         nameInput.value = allCoursesData[cId].roster[val];
@@ -147,12 +149,12 @@ function lookupStudentName() {
     }
   }
 
-  // 4. กรณีพิมพ์ครบ 10 หลักแล้วยังไม่มีในระบบ (นักศึกษาตกหล่น/เพิ่มใหม่)
+  // 4. กรณีพิมพ์ครบ 10 หลักแล้วไม่มีในระบบ (ปลดล็อกให้พิมพ์เองได้ ไม่ติดขัด)
   if (val.length === 10) {
     nameInput.value = '';
-    nameInput.readOnly = false; // ปลดล็อกให้นักศึกษาพิมพ์ชื่อเองได้
+    nameInput.readOnly = false;
     nameInput.classList.remove('readonly');
-    nameInput.placeholder = "ไม่พบในระบบ กรุณากรอก ชื่อ-นามสกุล จริงของคุณ";
+    nameInput.placeholder = "กรุณากรอก ชื่อ-นามสกุล ของคุณ";
   } else {
     nameInput.value = '';
     nameInput.readOnly = true;
@@ -203,7 +205,7 @@ function handleSelectedFile(file) {
   const stName = document.getElementById('studentNameInput').value.trim();
 
   if (!stId || !stName) {
-    alert("⚠️ กรุณากรอกรหัสนักศึกษา 10 หลักให้ถูกต้องก่อนเลือกไฟล์ เพื่อให้ระบบตรวจสอบชื่อไฟล์ได้");
+    alert("⚠️ กรุณากรอกรหัสนักศึกษาให้ถูกต้องก่อนเลือกไฟล์ เพื่อให้ระบบช่วยตั้งชื่อไฟล์ได้ถูกต้อง");
     const fileInput = document.getElementById('fileInput');
     if (fileInput) fileInput.value = '';
     return;
@@ -213,7 +215,7 @@ function handleSelectedFile(file) {
   const ext = dotIdx !== -1 ? file.name.substring(dotIdx) : '';
   const standardName = `${stId} - ${stName}${ext}`;
 
-  // ตรวจสอบชื่อไฟล์ ถ้าไม่ตรงกับระเบียบ ให้แจ้งเตือน ดาวน์โหลดไฟล์ใหม่ และเตรียมอัปโหลด
+  // ตรวจสอบชื่อไฟล์ ถ้าไม่ตรงให้ดาวน์โหลดไฟล์ชื่อใหม่ลงเครื่องทันที
   if (file.name !== standardName) {
     alert(`⚠️ ชื่อไฟล์เดิมไม่ถูกต้อง: "${file.name}"\n\nระบบดำเนินการเปลี่ยนชื่อไฟล์เป็น:\n"${standardName}"\nและได้ดาวน์โหลดไฟล์ที่ถูกต้องลงเครื่องของคุณแล้ว`);
 
@@ -247,55 +249,48 @@ function fileToBase64(file) {
   });
 }
 
+// ฟังก์ชันส่งงานตรงเข้า Apps Script และบันทึก Firebase
 async function submitHomework() {
   const stId = document.getElementById('studentIdInput').value.trim();
   const stName = document.getElementById('studentNameInput').value.trim();
 
-  if (!stId || !stName) {
-    return alert("กรุณาระบุรหัสนักศึกษาและชื่อ-นามสกุลให้ครบถ้วน");
-  }
-  if (!currentUploadFile) {
-    return alert("กรุณาเลือกไฟล์ชิ้นงานที่ต้องการส่ง");
-  }
-  if (!assignmentConfig || !assignmentConfig.folderUrl) {
-    return alert("ระบบยังไม่เปิดรับการบ้าน หรือไม่พบลิงก์โฟลเดอร์ Drive ของอาจารย์");
-  }
+  if (!stId || !stName) return alert("กรุณากรอกรหัสนักศึกษาและชื่อ-นามสกุลให้ครบถ้วน");
+  if (!currentUploadFile) return alert("กรุณาเลือกไฟล์ชิ้นงานที่ต้องการส่ง");
+  if (!assignmentConfig || !assignmentConfig.folderUrl) return alert("ไม่พบข้อมูลโฟลเดอร์รับงานของอาจารย์");
 
-  // ดึง Endpoint ของ Apps Script จาก config.js
+  // ดึง Endpoint ของ Apps Script จาก config.js โดยตรง
   const scriptUrl = (typeof CONFIG !== 'undefined' && (CONFIG.GOOGLE_SCRIPT_URL || CONFIG.UPLOAD_SCRIPT_URL))
     ? (CONFIG.GOOGLE_SCRIPT_URL || CONFIG.UPLOAD_SCRIPT_URL)
     : "";
 
   if (!scriptUrl || !scriptUrl.includes('script.google.com')) {
-    return alert("❌ ไม่พบ URL ของ Google Apps Script ในไฟล์ config.js กรุณาตรวจสอบการตั้งค่า");
+    return alert("❌ ไม่พบลิงก์ GOOGLE_SCRIPT_URL ใน config.js กรุณาตรวจสอบ");
   }
 
   const btn = document.getElementById('btnSubmitWork');
   btn.disabled = true;
-  btn.innerText = "⏳ กำลังส่งไฟล์เข้า Google Drive...";
+  btn.innerText = "⏳ กำลังส่งไฟล์ตรงเข้าโฟลเดอร์...";
 
   try {
     const base64Data = await fileToBase64(currentUploadFile);
 
-    // จัดโครงสร้างตัวแปรให้ตรงกับ Code.gs ของคุณ 100%
-    const payloadData = {
+    // เตรียม Payload ให้ตรงกับ Code.gs: folderUrl, fileName, fileData, mimeType
+    const payload = {
       folderUrl: assignmentConfig.folderUrl,
       fileName: currentUploadFile.name,
       fileData: base64Data,
       mimeType: currentUploadFile.type || "application/octet-stream"
     };
 
-    // ส่งเข้า Google Apps Script โดยใช้ text/plain เพื่อป้องกันการบล็อก CORS ของเบราว์เซอร์
+    // ส่งเข้า Apps Script ด้วย POST mode no-cors
     await fetch(scriptUrl, {
       method: "POST",
       mode: "no-cors",
-      headers: {
-        "Content-Type": "text/plain;charset=utf-8"
-      },
-      body: JSON.stringify(payloadData)
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
     });
 
-    // บันทึกหลักฐานลง Firebase Attendance
+    // บันทึกสถานะเข้า Firebase Attendance
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
@@ -315,13 +310,13 @@ async function submitHomework() {
       body: JSON.stringify(attendancePayload)
     });
 
-    alert(`✅ ส่งการบ้านสำเร็จเรียบร้อย!\nไฟล์: ${currentUploadFile.name}\n(ระบบส่งตรงเข้าโฟลเดอร์ Google Drive ของอาจารย์แล้ว)`);
+    alert(`✅ ส่งการบ้านสำเร็จเรียบร้อย!\nไฟล์: ${currentUploadFile.name}\n(ระบบส่งตรงเข้าโฟลเดอร์ Google Drive ของอาจารย์เรียบร้อยแล้ว)`);
     window.location.reload();
 
   } catch (err) {
     console.error("Submit Error:", err);
     alert("❌ เกิดข้อผิดพลาดในการส่ง กรุณาลองใหม่อีกครั้ง");
     btn.disabled = false;
-    btn.innerText = "🚀 อัปโหลดส่งการบ้านเดี๋ยวนี้";
+    btn.innerText = "🚀 ส่งการบ้าน";
   }
 }
