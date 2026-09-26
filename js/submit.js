@@ -113,15 +113,51 @@ function updateAssignmentStatusUI() {
   }
 }
 
+// ค้นหาชื่อนักศึกษาแบบยืดหยุ่น (ป้องกันปัญหารหัสตกหล่น)
 function lookupStudentName() {
   const idInput = document.getElementById('studentIdInput');
   const nameInput = document.getElementById('studentNameInput');
   const val = idInput.value.trim();
 
+  // 1. เคสพิเศษสำหรับทดสอบระบบ
+  if (val === "1234567890" || val === "0000") {
+    nameInput.value = "ทดสอบระบบ";
+    nameInput.readOnly = true;
+    nameInput.classList.add('readonly');
+    return;
+  }
+
+  // 2. ตรวจสอบในวิชาปัจจุบันก่อน
   if (val.length === 10 && currentRoster[val]) {
     nameInput.value = currentRoster[val];
+    nameInput.readOnly = true;
+    nameInput.classList.add('readonly');
+    return;
+  }
+
+  // 3. หากค้นหาไม่พบในวิชาปัจจุบัน ให้ค้นหาจากทุกวิชาใน allCoursesData (ถ้ามี)
+  if (val.length === 10 && typeof allCoursesData !== 'undefined') {
+    for (let cId in allCoursesData) {
+      if (allCoursesData[cId].roster && allCoursesData[cId].roster[val]) {
+        nameInput.value = allCoursesData[cId].roster[val];
+        nameInput.readOnly = true;
+        nameInput.classList.add('readonly');
+        return;
+      }
+    }
+  }
+
+  // 4. กรณีพิมพ์ครบ 10 หลักแล้วยังไม่มีในระบบ (นักศึกษาตกหล่น/เพิ่มใหม่)
+  if (val.length === 10) {
+    nameInput.value = '';
+    nameInput.readOnly = false; // ปลดล็อกให้นักศึกษาพิมพ์ชื่อเองได้
+    nameInput.classList.remove('readonly');
+    nameInput.placeholder = "ไม่พบในระบบ กรุณากรอก ชื่อ-นามสกุล จริงของคุณ";
   } else {
     nameInput.value = '';
+    nameInput.readOnly = true;
+    nameInput.classList.add('readonly');
+    nameInput.placeholder = "ระบบจะแสดงอัตโนมัติ";
   }
 }
 
