@@ -1,4 +1,4 @@
-// js/submit.js - ระบบส่งการบ้าน ตรวจสอบชื่อไฟล์ ดาวน์โหลดอัตโนมัติ และอัปโหลดตรงเข้า Google Drive ผ่าน Apps Script
+// js/submit.js - ระบบส่งการบ้าน ตรวจสอบชื่อไฟล์ ดาวน์โหลดอัตโนมัติ และอัปโหลดตรงเข้า Google Drive (บล็อกการส่งซ้ำ)
 
 let currentSession = "Week 1";
 let activeCourseId = '969-042G4';
@@ -121,7 +121,7 @@ function lookupStudentName() {
   const nameInput = document.getElementById('studentNameInput');
   const val = idInput.value.trim();
 
-  // 1. ค้นหาจาก STUDENT_ROSTER ใน config.js ก่อน (มีรหัส 1234567890 และรายชื่อทั้งหมด)
+  // 1. ค้นหาจาก STUDENT_ROSTER ใน config.js ก่อน
   if (typeof STUDENT_ROSTER !== 'undefined' && STUDENT_ROSTER[val]) {
     nameInput.value = STUDENT_ROSTER[val];
     nameInput.readOnly = true;
@@ -256,7 +256,6 @@ async function submitHomework() {
   if (!currentUploadFile) return alert("กรุณาเลือกไฟล์ชิ้นงานที่ต้องการส่ง");
   if (!assignmentConfig || !assignmentConfig.folderUrl) return alert("ไม่พบข้อมูลโฟลเดอร์รับงานของอาจารย์");
 
-  // รองรับทั้ง CONFIG.GAS_UPLOAD_URL และ CONFIG.GOOGLE_SCRIPT_URL
   const scriptUrl = (typeof CONFIG !== 'undefined' && (CONFIG.GAS_UPLOAD_URL || CONFIG.GOOGLE_SCRIPT_URL || CONFIG.UPLOAD_SCRIPT_URL))
     ? (CONFIG.GAS_UPLOAD_URL || CONFIG.GOOGLE_SCRIPT_URL || CONFIG.UPLOAD_SCRIPT_URL)
     : "";
@@ -267,12 +266,28 @@ async function submitHomework() {
 
   const btn = document.getElementById('btnSubmitWork');
   btn.disabled = true;
-  btn.innerText = "⏳ กำลังส่งไฟล์ตรงเข้าโฟลเดอร์...";
+  btn.innerText = "⏳ กำลังตรวจสอบสถานะการส่ง...";
+
+  const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
 
   try {
+    // 1. ตรวจสอบใน Firebase ก่อนว่าเคยส่งงานในสัปดาห์นี้ไปแล้วหรือไม่
+    const checkRes = await fetch(`${baseUrl}attendance/${activeCourseId}/${safeSession}/${stId}.json`);
+    const studentData = await checkRes.json();
+
+    if (studentData && (studentData.fileName || studentData.submittedTime)) {
+      alert(`❌ คุณได้ส่งการบ้านไปแล้วเมื่อเวลา ${studentData.submittedTime || '-'}\n(ระบบอนุญาตให้ส่งได้เพียงครั้งเดียว หากต้องการส่งใหม่ กรุณาติดต่ออาจารย์ผู้สอนเพื่อขอรีเซ็ต)`);
+      btn.disabled = false;
+      btn.innerText = "🚀 อัปโหลดส่งการบ้านเดี๋ยวนี้";
+      return;
+    }
+
+    btn.innerText = "⏳ กำลังส่งไฟล์ตรงเข้า Google Drive...";
+
     const base64Data = await fileToBase64(currentUploadFile);
 
-    // Payload ตรงตามพารามิเตอร์ของ Code.gs: folderUrl, fileName, fileData, mimeType
+    // 2. ส่งไฟล์เข้า Apps Script
     const payload = {
       folderUrl: assignmentConfig.folderUrl,
       fileName: currentUploadFile.name,
@@ -280,7 +295,6 @@ async function submitHomework() {
       mimeType: currentUploadFile.type || "application/octet-stream"
     };
 
-    // ส่งเข้า Apps Script ด้วย POST text/plain เพื่อข้าม CORS
     await fetch(scriptUrl, {
       method: "POST",
       mode: "no-cors",
@@ -288,11 +302,9 @@ async function submitHomework() {
       body: JSON.stringify(payload)
     });
 
-    // บันทึกสถานะเข้า Firebase Attendance
+    // 3. บันทึกหลักฐานการส่งเข้า Firebase Attendance
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
-    const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
 
     const attendancePayload = {
       fileName: currentUploadFile.name,
@@ -315,6 +327,6 @@ async function submitHomework() {
     console.error("Submit Error:", err);
     alert("❌ เกิดข้อผิดพลาดในการส่ง กรุณาลองใหม่อีกครั้ง");
     btn.disabled = false;
-    btn.innerText = "🚀 ส่งการบ้าน";
+    btn.innerText = "🚀 อัปโหลดส่งการบ้านเดี๋ยวนี้";
   }
 }
