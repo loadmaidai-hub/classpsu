@@ -2,14 +2,14 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>ส่งการบ้าน - Classroom Management</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --font-main: "Gotham", "Montserrat", "Sukhumwit Set", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-main: "Prompt", "Sukhumwit Set", -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
     * {
@@ -18,12 +18,12 @@
       padding: 0;
     }
 
-    /* ล็อคหน้าจอสมบูรณ์แบบ ห้าม Scroll ทุกกรณี */
+    /* ล็อคหน้าจอให้อยู่กึ่งกลางพอดี ไม่เลื่อน ไม่ Scroll */
     html, body {
       width: 100%;
       height: 100vh;
       max-height: 100vh;
-      overflow: hidden; /* ห้าม Scroll */
+      overflow: hidden;
       background-color: #F8FAFC;
       font-family: var(--font-main);
       color: #1E293B;
@@ -33,23 +33,21 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* การ์ดสัดส่วนพอดีเฟรมหน้าจอ */
     .submit-card {
       background: #FFFFFF;
       border-radius: 28px;
-      padding: 1.6rem 2.2rem;
-      width: 90%;
+      padding: 1.5rem 2.2rem;
+      width: 92%;
       max-width: 480px;
       box-shadow: 0 15px 40px rgba(0, 0, 0, 0.04);
       border: 1px solid #EEF2F6;
     }
 
-    /* แถบหัวการ์ด */
     .card-top-bar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 1rem;
+      margin-bottom: 0.9rem;
     }
 
     .badge-status {
@@ -78,29 +76,27 @@
       border-radius: 9999px;
     }
 
-    /* หัวข้อ */
     .submit-title {
       font-size: 1.45rem;
       font-weight: 800;
       color: #1E1B4B;
       text-align: left;
-      margin-bottom: 0.85rem;
+      margin-bottom: 0.8rem;
       display: flex;
       align-items: center;
       gap: 0.4rem;
     }
 
-    /* กล่องข้อความเตือนการตั้งชื่อไฟล์ */
     .instruction-box {
       background: #FFFDF0;
       border: 1px dashed #FDE047;
       border-radius: 14px;
-      padding: 0.65rem 0.9rem;
-      margin-bottom: 1rem;
+      padding: 0.6rem 0.9rem;
+      margin-bottom: 0.95rem;
       text-align: left;
     }
     .instruction-box .inst-title {
-      font-size: 0.75rem;
+      font-size: 0.76rem;
       font-weight: 700;
       color: #B45309;
       margin-bottom: 0.15rem;
@@ -111,9 +107,8 @@
       color: #D97706;
     }
 
-    /* ช่องกรอกข้อมูล */
     .form-group {
-      margin-bottom: 0.85rem;
+      margin-bottom: 0.8rem;
       text-align: left;
     }
 
@@ -121,7 +116,7 @@
       font-size: 0.78rem;
       font-weight: 700;
       color: #1E1B4B;
-      margin-bottom: 0.35rem;
+      margin-bottom: 0.3rem;
       display: block;
     }
 
@@ -135,7 +130,6 @@
       font-weight: 500;
       color: #1E293B;
       outline: none;
-      transition: all 0.2s;
       background: #FFFFFF;
     }
 
@@ -149,26 +143,25 @@
       cursor: not-allowed;
     }
 
-    /* กล่อง Drag and Drop ย่อขนาดพอดีความสูงจอ */
     .dropzone-box {
       border: 1.5px dashed #CBD5E1;
       border-radius: 16px;
-      padding: 1.2rem 1rem;
+      padding: 1.1rem 1rem;
       text-align: center;
       background: #FFFFFF;
       cursor: pointer;
-      transition: all 0.2s ease;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       min-height: 105px;
+      transition: all 0.2s ease;
     }
 
     .dropzone-box:hover,
     .dropzone-box.dragover {
       border-color: #4338CA;
-      background: #F8FAFC;
+      background: #EEF2FF;
     }
 
     .dropzone-icon {
@@ -197,10 +190,9 @@
       word-break: break-all;
     }
 
-    /* ปุ่มส่งการบ้าน */
     .btn-submit {
       width: 100%;
-      padding: 0.78rem;
+      padding: 0.75rem;
       border-radius: 9999px;
       border: none;
       background: #4338CA;
@@ -210,8 +202,7 @@
       font-family: var(--font-main);
       cursor: pointer;
       box-shadow: 0 4px 15px rgba(67, 56, 202, 0.25);
-      transition: all 0.2s;
-      margin-top: 0.4rem;
+      margin-top: 0.3rem;
     }
 
     .btn-submit:hover {
@@ -228,48 +219,42 @@
 <body>
 
   <div class="submit-card">
-    <!-- แถบด้านบน -->
     <div class="card-top-bar">
-      <div class="badge-status" id="assignmentStatusBadge">⚠️ ยังไม่เปิดรับการบ้าน (ไม่มีลิงก์โฟลเดอร์)</div>
-      <div class="badge-week" id="currentSessionLabel">Week 1 (16 ก.ย. 2569)</div>
+      <div class="badge-status" id="assignmentStatusBadge">⚠️ ยังไม่เปิดรับการบ้าน</div>
+      <div class="badge-week" id="currentSessionLabel">Week 1</div>
     </div>
 
-    <!-- หัวข้อ -->
     <h2 class="submit-title">📥 ส่งการบ้าน</h2>
 
-    <!-- กล่องกติกาตั้งชื่อไฟล์ -->
     <div class="instruction-box">
       <div class="inst-title">📌 ชื่อไฟล์: ตั้งชื่อไฟล์ให้ตรงตามรูปแบบ</div>
       <div class="inst-desc">[รหัสนักศึกษา] - [ชื่อ นามสกุล].[นามสกุลไฟล์]</div>
     </div>
 
-    <!-- ฟอร์มส่งงาน -->
-    <form id="submitAssignmentForm" onsubmit="handleAssignmentUpload(event)">
-      <div class="form-group">
-        <label class="form-label">รหัสนักศึกษา (10 หลัก):</label>
-        <input type="text" id="studentIdInput" class="form-input" placeholder="เช่น 6730611001" maxlength="10" required oninput="lookupStudentName()">
-      </div>
+    <div class="form-group">
+      <label class="form-label">รหัสนักศึกษา (10 หลัก):</label>
+      <input type="text" id="studentIdInput" class="form-input" placeholder="เช่น 6730611001" maxlength="10" oninput="lookupStudentName()">
+    </div>
 
-      <div class="form-group">
-        <label class="form-label">ชื่อ - นามสกุล:</label>
-        <input type="text" id="studentNameInput" class="form-input readonly" placeholder="ระบบจะแสดงอัตโนมัติ" readonly>
-      </div>
+    <div class="form-group">
+      <label class="form-label">ชื่อ - นามสกุล:</label>
+      <input type="text" id="studentNameInput" class="form-input readonly" placeholder="ระบบจะแสดงอัตโนมัติ" readonly>
+    </div>
 
-      <div class="form-group">
-        <label class="form-label">เลือกไฟล์ชิ้นงาน:</label>
-        <div class="dropzone-box" id="dropzoneBox">
-          <div class="dropzone-icon">📄</div>
-          <div class="dropzone-text">คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่</div>
-          <div class="dropzone-subtext">(ระบบจะส่งไฟล์ตรงเข้าโฟลเดอร์ของอาจารย์ทันที)</div>
-          <div class="file-preview" id="filePreviewText"></div>
-        </div>
-        <input type="file" id="fileInput" style="display: none;">
+    <div class="form-group">
+      <label class="form-label">เลือกไฟล์ชิ้นงาน:</label>
+      <div class="dropzone-box" id="dropzoneBox">
+        <div class="dropzone-icon">📄</div>
+        <div class="dropzone-text">คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่</div>
+        <div class="dropzone-subtext">(ระบบจะส่งไฟล์ตรงเข้าโฟลเดอร์ของอาจารย์ทันที)</div>
+        <div class="file-preview" id="filePreviewText"></div>
       </div>
+      <input type="file" id="fileInput" style="display: none;">
+    </div>
 
-      <button type="submit" class="btn-submit" id="btnSubmitWork">
-        🚀 อัปโหลดส่งการบ้านเดี๋ยวนี้
-      </button>
-    </form>
+    <button type="button" class="btn-submit" id="btnSubmitWork" onclick="submitHomework()">
+      🚀 ส่งการบ้าน
+    </button>
   </div>
 
   <script src="js/config.js"></script>
