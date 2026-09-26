@@ -316,12 +316,12 @@ function renderTableRows(rankedList) {
     else if (isPresent) statusBadge = `<span class="tag tag-present" onclick="openStatusModal('${st.id}')">เข้าห้องแล้ว</span>`;
     else if (isLate) statusBadge = `<span class="tag tag-late" onclick="openStatusModal('${st.id}')">มาสาย</span>`;
 
-    // ปุ่มกล่องสีเขียว ตัวอักษรขาว "ดูชิ้นงาน"
+    // ปรับปุ่มดูชิ้นงานให้เป็นทรงแคปซูลสีเขียวเหมือนปุ่ม "ส่งแล้ว"
     let fileDisplay = '<span class="tag tag-waiting">ยังไม่ส่ง</span>';
     if (hasFile) {
       const targetUrl = rec.fileUrl || (currentAssignmentConfig && currentAssignmentConfig.folderUrl ? currentAssignmentConfig.folderUrl : '#');
       fileDisplay = `
-        <a href="${targetUrl}" target="_blank" class="btn-view-work" title="${rec.fileName || 'เปิดดูชิ้นงาน'}">
+        <a href="${targetUrl}" target="_blank" class="tag tag-submitted" style="text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem;" title="${rec.fileName || 'เปิดดูชิ้นงาน'}">
           📄 ดูชิ้นงาน
         </a>
       `;
