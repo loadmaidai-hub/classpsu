@@ -27,75 +27,10 @@ function init() {
 
   loadCoursesAndRoster();
   fetchCurrentSession();
-  loadInitialPin(); // ดึง PIN จาก Firebase ก่อน หากไม่มีค่อยสุ่มใหม่
+  generatePIN();
   startTimer();
   setInterval(fetchData, 3000);
 }
-
-// อัปเดตตัวเลข PIN ลงทั้ง 2 Layer (pinBase และ pinFill)
-function updatePinOnScreen(pin) {
-  const pinText = pin ? pin.toString() : "-----";
-  const elBase = document.getElementById("pinBase");
-  const elFill = document.getElementById("pinFill");
-  
-  if (elBase) elBase.innerText = pinText;
-  if (elFill) elFill.innerText = pinText;
-}
-
-// โหลด PIN เริ่มต้นจาก Firebase
-function loadInitialPin() {
-  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
-  
-  fetch(`${baseUrl}current_pin.json`)
-    .then(r => r.json())
-    .then(pin => {
-      if (pin) {
-        updatePinOnScreen(pin);
-      } else {
-        generateNewPin();
-      }
-    })
-    .catch(() => generateNewPin());
-}
-
-// สุ่ม PIN ใหม่ 4 หลัก พร้อมบันทึกขึ้น Firebase
-function generateNewPin() {
-  const lifetime = (typeof CONFIG !== 'undefined' && CONFIG.PIN_LIFETIME) ? CONFIG.PIN_LIFETIME : 120;
-  secondsLeft = lifetime;
-
-  const newPin = Math.floor(1000 + Math.random() * 9000).toString();
-  updatePinOnScreen(newPin);
-
-  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
-  fetch(`${baseUrl}current_pin.json`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(newPin)
-  })
-  .then(() => console.log("PIN Synced:", newPin))
-  .catch(err => console.error("Error syncing PIN:", err));
-}
-
-// สุ่ม PIN 3 หลัก (สำหรับปุ่มสุ่ม 3 ตัว)
-function generateThreeDigitPin() {
-  const lifetime = (typeof CONFIG !== 'undefined' && CONFIG.PIN_LIFETIME) ? CONFIG.PIN_LIFETIME : 120;
-  secondsLeft = lifetime;
-
-  const newPin = Math.floor(100 + Math.random() * 900).toString();
-  updatePinOnScreen(newPin);
-
-  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
-  fetch(`${baseUrl}current_pin.json`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(newPin)
-  })
-  .catch(err => console.error("Error syncing PIN:", err));
-}
-
-// Alias ให้ปุ่มอื่นๆ เรียกใช้ได้
-function generatePIN() { generateNewPin(); }
-function forceResetPIN() { generateNewPin(); }
 
 // โหลดสัปดาห์เรียนจริงจาก Firebase (ไม่ให้โค้ดเก่าคำนวณทับ)
 function fetchCurrentSession() {
@@ -177,12 +112,38 @@ function updateDynamicQRCode() {
   qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(targetUrl)}`;
 }
 
+function generateNewPin() {
+  // สุ่มเลข 4 หลัก
+  const newPin = Math.floor(1000 + Math.random() * 9000).toString();
+  
+  // แสดงผลบนหน้าจอทันที
+  const pinDisplay = document.getElementById('pinDisplay');
+  if (pinDisplay) pinDisplay.innerText = newPin;
+
+  // ส่งขึ้น Firebase เพื่อให้นักเรียนกรอกตรงกัน
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+  
+  fetch(`${baseUrl}current_pin.json`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(newPin)
+  })
+  .then(() => {
+    console.log("PIN synced to Firebase:", newPin);
+  })
+  .catch(err => {
+    console.error("Error syncing PIN:", err);
+  });
+}
+
+function forceResetPIN() { generatePIN(); }
+
 function startTimer() {
   if (timerInterval) clearInterval(timerInterval);
   timerInterval = setInterval(() => {
     secondsLeft--;
     updateTimerUI();
-    if (secondsLeft <= 0) generateNewPin();
+    if (secondsLeft <= 0) generatePIN();
   }, 1000);
 }
 
@@ -230,20 +191,45 @@ function changeSession() {
 
 function fetchData() {
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
-  fetch(`${baseUrl}attendance/${currentCourseId}.json`)
+  
+  // ดึง attendance ทั้งก้อนเพื่อรองรับทั้งข้อมูลใหม่ (ใต้รหัสวิชา) และข้อมูลเก่า (ที่ Root)
+  fetch(`${baseUrl}attendance.json`)
     .then(r => r.json())
-    .then(d => {
-      realtimeData = d || {};
+    .then(allAttendance => {
+      if (!allAttendance) {
+        realtimeData = {};
+        renderLeaderboard();
+        return;
+      }
+
+      // ดึงข้อมูลใต้รหัสวิชาปัจจุบัน (ถ้ามี)
+      const courseData = allAttendance[currentCourseId] || {};
+
+      // ผสานข้อมูลทั้งก้อนเข้าด้วยกัน เพื่อให้ตรวจพบคีย์ Week 1 ที่อยู่ข้างนอกด้วย
+      realtimeData = Object.assign({}, allAttendance, courseData);
       renderLeaderboard();
     })
     .catch(() => {});
 }
 
 function renderLeaderboard() {
-  const safe = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
-  const records = realtimeData[safe] || realtimeData[currentSession] || {};
   const tbody = document.getElementById('sideTableBody');
   if (!tbody) return;
+
+  const safe = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
+  
+  // ค้นหาข้อมูลของสัปดาห์ปัจจุบัน (ตรวจทั้งคีย์ตรง และคีย์ภาษาไทยของ Week 1)
+  let records = realtimeData[safe] || realtimeData[currentSession] || {};
+
+  // กรณีเป็น Week 1 ให้กวาดหาคีย์ที่มีคำว่า Week 1 หรือ 16 ก.ย.
+  if (Object.keys(records).length === 0 && (currentSession.includes("Week 1") || currentSession === "Week 1")) {
+    const matchedKey = Object.keys(realtimeData).find(k => 
+      k.includes("Week 1") || k.includes("16 ก.ย.")
+    );
+    if (matchedKey && typeof realtimeData[matchedKey] === 'object') {
+      records = realtimeData[matchedKey];
+    }
+  }
 
   const rosterIds = Object.keys(currentRoster);
   let list = rosterIds.map(id => ({
