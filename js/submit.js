@@ -239,6 +239,6 @@ async function submitHomework() {
     console.error("Submit Error:", err);
     alert("❌ เกิดข้อผิดพลาดในการส่ง กรุณาลองใหม่อีกครั้ง");
     btn.disabled = false;
-    btn.innerText = "🚀 ส่งการบ้านเดี๋ยวนี้";
+    btn.innerText = "🚀 ส่งการบ้าน";
   }
 }
