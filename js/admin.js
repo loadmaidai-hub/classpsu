@@ -295,25 +295,13 @@ function setTableFilter(flt, btn) {
 }
 
 // ฟังก์ชันเปิดพรีวิวไฟล์ชิ้นงานโดยตรง
-function openFilePreview(fileUrl, fileName) {
+function openFilePreview(fileUrl) {
   if (!fileUrl && currentAssignmentConfig && currentAssignmentConfig.folderUrl) {
     fileUrl = currentAssignmentConfig.folderUrl;
   }
   if (!fileUrl) return;
 
-  // หากเป็นลิงก์เปิดดูไฟล์โดยตรงอยู่แล้ว (/file/d/...) ให้เปิดทันที
-  if (fileUrl.includes('/file/d/')) {
-    window.open(fileUrl, '_blank');
-    return;
-  }
-
-  // หากเป็นลิงก์โฟลเดอร์ ให้เปิดโฟลเดอร์พร้อมระบุคำค้นหาชื่อไฟล์เพื่อพรีวิวไฟล์ทันที
-  if (fileName && fileUrl.includes('drive.google.com')) {
-    const encodedName = encodeURIComponent(fileName);
-    window.open(`https://drive.google.com/drive/search?q=${encodedName}`, '_blank');
-    return;
-  }
-
+  // เปิดแท็บใหม่เข้าหน้า Preview ไฟล์นั้นทันที
   window.open(fileUrl, '_blank');
 }
 
@@ -342,10 +330,9 @@ function renderTableRows(rankedList) {
     // ปุ่มกล่องแคปซูลเขียว "📄 ดูชิ้นงาน" สไตล์เดียวกับ "ส่งแล้ว"
     let fileDisplay = '<span class="tag tag-waiting">ยังไม่ส่ง</span>';
     if (hasFile) {
-      const targetUrl = rec.fileUrl || (currentAssignmentConfig && currentAssignmentConfig.folderUrl ? currentAssignmentConfig.folderUrl : '');
-      const safeName = (rec.fileName || '').replace(/'/g, "\\'");
+      const targetUrl = rec.fileUrl || (currentAssignmentConfig && currentAssignmentConfig.folderUrl ? currentAssignmentConfig.folderUrl : '#');
       fileDisplay = `
-        <span onclick="openFilePreview('${targetUrl}', '${safeName}')" class="tag tag-submitted" style="text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem;" title="${rec.fileName || 'เปิดดูชิ้นงาน'}">
+        <span onclick="openFilePreview('${targetUrl}')" class="tag tag-submitted" style="text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem;" title="${rec.fileName || 'เปิดดูชิ้นงาน'}">
           📄 ดูชิ้นงาน
         </span>
       `;
