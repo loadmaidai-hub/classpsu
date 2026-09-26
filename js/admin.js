@@ -154,7 +154,7 @@ function onAdminSessionChange() {
   loadAssignmentSettings();
 }
 
-// โหลดข้อมูลเข้าเรียน (รองรับข้อมูล Week 1 จาก Root และ Course ID)
+// โหลดข้อมูลเข้าเรียน
 function loadSessionData() {
   const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
@@ -294,7 +294,30 @@ function setTableFilter(flt, btn) {
   renderDashboardUI();
 }
 
-// เรนเดอร์ตาราง แสดงปุ่มเขียว "ดูชิ้นงาน" และแยกเวลาเข้าเรียนกับเวลาส่งงาน
+// ฟังก์ชันเปิดพรีวิวไฟล์ชิ้นงานโดยตรง
+function openFilePreview(fileUrl, fileName) {
+  if (!fileUrl && currentAssignmentConfig && currentAssignmentConfig.folderUrl) {
+    fileUrl = currentAssignmentConfig.folderUrl;
+  }
+  if (!fileUrl) return;
+
+  // หากเป็นลิงก์เปิดดูไฟล์โดยตรงอยู่แล้ว (/file/d/...) ให้เปิดทันที
+  if (fileUrl.includes('/file/d/')) {
+    window.open(fileUrl, '_blank');
+    return;
+  }
+
+  // หากเป็นลิงก์โฟลเดอร์ ให้เปิดโฟลเดอร์พร้อมระบุคำค้นหาชื่อไฟล์เพื่อพรีวิวไฟล์ทันที
+  if (fileName && fileUrl.includes('drive.google.com')) {
+    const encodedName = encodeURIComponent(fileName);
+    window.open(`https://drive.google.com/drive/search?q=${encodedName}`, '_blank');
+    return;
+  }
+
+  window.open(fileUrl, '_blank');
+}
+
+// เรนเดอร์ตาราง แสดงปุ่มเขียว "ดูชิ้นงาน" แบบแคปซูล และแยกเวลาเข้าเรียนกับเวลาส่งงาน
 function renderTableRows(rankedList) {
   const tbody = document.getElementById('adminTableBody');
   if (!tbody) return;
@@ -316,14 +339,15 @@ function renderTableRows(rankedList) {
     else if (isPresent) statusBadge = `<span class="tag tag-present" onclick="openStatusModal('${st.id}')">เข้าห้องแล้ว</span>`;
     else if (isLate) statusBadge = `<span class="tag tag-late" onclick="openStatusModal('${st.id}')">มาสาย</span>`;
 
-    // ปรับปุ่มดูชิ้นงานให้เป็นทรงแคปซูลสีเขียวเหมือนปุ่ม "ส่งแล้ว"
+    // ปุ่มกล่องแคปซูลเขียว "📄 ดูชิ้นงาน" สไตล์เดียวกับ "ส่งแล้ว"
     let fileDisplay = '<span class="tag tag-waiting">ยังไม่ส่ง</span>';
     if (hasFile) {
-      const targetUrl = rec.fileUrl || (currentAssignmentConfig && currentAssignmentConfig.folderUrl ? currentAssignmentConfig.folderUrl : '#');
+      const targetUrl = rec.fileUrl || (currentAssignmentConfig && currentAssignmentConfig.folderUrl ? currentAssignmentConfig.folderUrl : '');
+      const safeName = (rec.fileName || '').replace(/'/g, "\\'");
       fileDisplay = `
-        <a href="${targetUrl}" target="_blank" class="tag tag-submitted" style="text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem;" title="${rec.fileName || 'เปิดดูชิ้นงาน'}">
+        <span onclick="openFilePreview('${targetUrl}', '${safeName}')" class="tag tag-submitted" style="text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem;" title="${rec.fileName || 'เปิดดูชิ้นงาน'}">
           📄 ดูชิ้นงาน
-        </a>
+        </span>
       `;
     }
 
@@ -374,6 +398,7 @@ function closeStatusModal() {
   if (modal) modal.style.display = 'none';
 }
 
+// บันทึกสถานะเข้าเรียน - ถ้าเลือก ABSENT ให้ลบเวลาเข้าห้องออก แต่คงเวลาส่งงานไว้
 function confirmSaveStatus() {
   if (!currentEditingStudentId) return;
 
@@ -392,8 +417,6 @@ function confirmSaveStatus() {
   const now = new Date();
   const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-  // หากเป็น ABSENT ให้ตั้งค่าเวลาเข้าห้อง (checkInTime และ timestamp) เป็น null เพื่อลบเวลาออก
-  // ข้อมูลการส่งการบ้าน (submittedTime, fileName, fileUrl) จะไม่ถูกแตะต้องและยังอยู่เหมือนเดิม
   const isAbsent = (newStatus === 'ABSENT');
   const updatePayload = {
     status: newStatus,
