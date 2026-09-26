@@ -20,7 +20,6 @@ document.addEventListener("DOMContentLoaded", () => {
 // ตรวจจับปุ่ม Esc และ Enter สำหรับทุก Modal
 function setupKeyboardShortcuts() {
   document.addEventListener("keydown", (e) => {
-    // 1. ปุ่ม Escape: สั่งปิด Modal ที่เปิดอยู่ทั้งหมด
     if (e.key === "Escape" || e.key === "Esc") {
       closeStatusModal();
       if (typeof closeSettingsModal === 'function') closeSettingsModal();
@@ -28,19 +27,16 @@ function setupKeyboardShortcuts() {
       return;
     }
 
-    // 2. ปุ่ม Enter: ยืนยันการทำงานตาม Modal ที่กำลังเปิดอยู่
     if (e.key === "Enter") {
       const statusModal = document.getElementById('attendanceStatusModal');
       const settingsModal = document.getElementById('settingsModal');
 
-      // ถ้าเปิด Modal ปรับสถานะอยู่
       if (statusModal && statusModal.style.display === 'flex') {
         e.preventDefault();
         confirmSaveStatus();
         return;
       }
 
-      // ถ้าเปิด Modal ตั้งค่าห้องเรียนอยู่ และกำลังโฟกัสในช่องกรอกเพิ่มนักศึกษา
       if (settingsModal && settingsModal.style.display === 'flex') {
         const idInput = document.getElementById('newStudentId');
         const nameInput = document.getElementById('newStudentName');
@@ -124,7 +120,6 @@ function onAdminCourseChange() {
     if (secInput) secInput.value = (course.section || '').replace(/Sec\s*/i, '');
     if (roomInput) roomInput.value = (course.room || '').replace(/ห้อง\s*/i, '');
 
-    // แยกวันและเวลาลง Dropdown และช่องกรอก
     if (course.dayTime) {
       const parts = course.dayTime.trim().split(/\s+(.+)/);
       if (daySelect && parts[0]) daySelect.value = parts[0];
@@ -159,7 +154,7 @@ function onAdminSessionChange() {
   loadAssignmentSettings();
 }
 
-// โหลดข้อมูลเข้าเรียน (รองรับข้อมูล Week 1 จาก Root เดิมและใต้ Course Id)
+// โหลดข้อมูลเข้าเรียน (รองรับข้อมูล Week 1 จาก Root และ Course ID)
 function loadSessionData() {
   const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
@@ -191,7 +186,7 @@ function loadSessionData() {
         }
       }
 
-      // 2. ค้นหาที่ Root ของ attendance (สำหรับ Week 1 โครงสร้างเดิม)
+      // 2. ค้นหาที่ Root ของ attendance
       if (!targetData) {
         targetData = rootAttendance[currentSession] || 
                      rootAttendance[safeSession] || 
@@ -299,6 +294,7 @@ function setTableFilter(flt, btn) {
   renderDashboardUI();
 }
 
+// เรนเดอร์ตาราง แสดงปุ่มเขียว "ดูชิ้นงาน" และแยกเวลาเข้าเรียนกับเวลาส่งงาน
 function renderTableRows(rankedList) {
   const tbody = document.getElementById('adminTableBody');
   if (!tbody) return;
@@ -320,15 +316,20 @@ function renderTableRows(rankedList) {
     else if (isPresent) statusBadge = `<span class="tag tag-present" onclick="openStatusModal('${st.id}')">เข้าห้องแล้ว</span>`;
     else if (isLate) statusBadge = `<span class="tag tag-late" onclick="openStatusModal('${st.id}')">มาสาย</span>`;
 
+    // ปุ่มกล่องสีเขียว ตัวอักษรขาว "ดูชิ้นงาน"
     let fileDisplay = '<span class="tag tag-waiting">ยังไม่ส่ง</span>';
     if (hasFile) {
-      if (rec.fileUrl) {
-        fileDisplay = `<a href="${rec.fileUrl}" target="_blank" style="color:#4338CA; font-weight:700; text-decoration:none;">📄 ${rec.fileName || 'ดูไฟล์'} (${rec.fileSize || 'งาน'})</a>`;
-      } else {
-        fileDisplay = `<span style="color:#4338CA; font-weight:700;">📄 ${rec.fileName || 'ส่งแล้ว'}</span>`;
-      }
+      const targetUrl = rec.fileUrl || (currentAssignmentConfig && currentAssignmentConfig.folderUrl ? currentAssignmentConfig.folderUrl : '#');
+      fileDisplay = `
+        <a href="${targetUrl}" target="_blank" class="btn-view-work" title="${rec.fileName || 'เปิดดูชิ้นงาน'}">
+          📄 ดูชิ้นงาน
+        </a>
+      `;
     }
 
+    // แยกเวลาเข้าเรียน และ เวลาส่งงาน
+    const checkInTimeDisplay = rec.checkInTime || rec.timestamp || '-';
+    const submittedTimeDisplay = rec.submittedTime || (hasFile ? (rec.timestamp || '-') : '-');
     const ipDisplay = rec.ip || rec.ipAddress || '-';
 
     const tr = document.createElement('tr');
@@ -337,7 +338,8 @@ function renderTableRows(rankedList) {
       <td style="font-weight:700; color:#1E1B4B; cursor:pointer;" onclick="openStatusModal('${st.id}')">${st.id}</td>
       <td style="cursor:pointer;" onclick="openStatusModal('${st.id}')">${st.name}</td>
       <td>${statusBadge}</td>
-      <td>${rec.timestamp || rec.submittedTime || '-'}</td>
+      <td>${checkInTimeDisplay}</td>
+      <td style="font-weight:600; color:#4338CA;">${submittedTimeDisplay}</td>
       <td style="font-weight:700; color:#4338CA;">${st.score > -1 ? st.score : '-'}</td>
       <td><span class="${hasFile ? 'tag tag-submitted' : 'tag tag-waiting'}">${hasFile ? 'ส่งแล้ว' : 'ยังไม่ส่ง'}</span></td>
       <td>${fileDisplay}</td>
@@ -347,7 +349,7 @@ function renderTableRows(rankedList) {
   });
 }
 
-// Modal ปรับสถานะการเข้าเรียน และ ล้างข้อมูลการบ้าน
+// Modal ปรับสถานะการเข้าเรียน
 function openStatusModal(stId) {
   currentEditingStudentId = stId;
   const studentName = activeRoster[stId] || '';
@@ -372,7 +374,6 @@ function closeStatusModal() {
   if (modal) modal.style.display = 'none';
 }
 
-// บันทึกสถานะการเข้าเรียน
 function confirmSaveStatus() {
   if (!currentEditingStudentId) return;
 
@@ -394,6 +395,7 @@ function confirmSaveStatus() {
   const updatePayload = {
     status: newStatus,
     leaveReason: newStatus === 'LEAVE' ? leaveReason : null,
+    checkInTime: rec.checkInTime || (newStatus !== 'ABSENT' ? timeStr : null),
     timestamp: rec.timestamp || (newStatus !== 'ABSENT' ? timeStr : null)
   };
 
@@ -408,7 +410,7 @@ function confirmSaveStatus() {
   });
 }
 
-// รีเซ็ตการส่งการบ้านเฉพาะรายบุคคล (ล้างเฉพาะข้อมูลไฟล์)
+// รีเซ็ตการส่งการบ้านรายบุคคล (ล้างเฉพาะข้อมูลไฟล์)
 function confirmResetStudentSubmission() {
   if (!currentEditingStudentId) return;
 
@@ -512,22 +514,12 @@ function resetAssignmentInputs() {
   if (dInput) dInput.value = '';
 }
 
-function saveCutoffTime() {
-  const time = document.getElementById('cutoffTimeInput').value;
-  const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
-  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
-
-  fetch(`${baseUrl}session_settings/${activeCourseId}/${safeSession}/cutoffTime.json`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(time)
-  });
-}
-
 function renderStudentRosterManager() {
   const container = document.getElementById('rosterListContainer');
+  const rosterCountEl = document.getElementById('rosterCount');
   if (!container) return;
   const rosterIds = Object.keys(activeRoster);
+  if (rosterCountEl) rosterCountEl.innerText = rosterIds.length;
   container.innerHTML = '';
 
   rosterIds.forEach(id => {
@@ -599,6 +591,26 @@ function saveCourseMetadata() {
   });
 }
 
+function openOverviewModal() {
+  const modal = document.getElementById('overviewModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeOverviewModal() {
+  const modal = document.getElementById('overviewModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function openSettingsModal() {
+  const modal = document.getElementById('settingsModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeSettingsModal() {
+  const modal = document.getElementById('settingsModal');
+  if (modal) modal.style.display = 'none';
+}
+
 function loadAllAttendanceForOverview() {
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
   fetch(`${baseUrl}attendance/${activeCourseId}.json`)
@@ -644,7 +656,7 @@ function exportAttendanceToCSV() {
   const rosterIds = Object.keys(activeRoster);
   if (rosterIds.length === 0) return alert("ไม่มีข้อมูลสำหรับ Export");
 
-  let csv = "\uFEFFอันดับ,รหัสนักศึกษา,ชื่อ - นามสกุล,สถานะเช็คชื่อ,เวลาเข้าเรียน,คะแนน,สถานะการบ้าน,ลิงก์ไฟล์,IP Address\n";
+  let csv = "\uFEFFอันดับ,รหัสนักศึกษา,ชื่อ - นามสกุล,สถานะเช็คชื่อ,เวลาเข้าเรียน,เวลาส่งงาน,คะแนน,สถานะการบ้าน,ลิงก์ไฟล์,IP Address\n";
   rosterIds.forEach((id, idx) => {
     const rec = sessionAttendance[id] || {};
     let st = "ขาดเรียน";
@@ -652,6 +664,8 @@ function exportAttendanceToCSV() {
     else if (rec.status === "LATE") st = "มาสาย";
     else if (rec.status === "LEAVE") st = "ลาเรียน";
 
+    const checkInTime = rec.checkInTime || rec.timestamp || '-';
+    const subTime = rec.submittedTime || (rec.fileUrl ? (rec.timestamp || '-') : '-');
     const ip = rec.ip || rec.ipAddress || '-';
 
     csv += [
@@ -659,7 +673,8 @@ function exportAttendanceToCSV() {
       `"${id}"`,
       `"${activeRoster[id]}"`,
       `"${st}"`,
-      `"${rec.timestamp || '-'}"`,
+      `"${checkInTime}"`,
+      `"${subTime}"`,
       rec.score !== undefined ? rec.score : 0,
       rec.fileUrl ? "ส่งแล้ว" : "ยังไม่ส่ง",
       `"${rec.fileUrl || '-'}"`,
