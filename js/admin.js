@@ -392,11 +392,14 @@ function confirmSaveStatus() {
   const now = new Date();
   const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
+  // หากเป็น ABSENT ให้ตั้งค่าเวลาเข้าห้อง (checkInTime และ timestamp) เป็น null เพื่อลบเวลาออก
+  // ข้อมูลการส่งการบ้าน (submittedTime, fileName, fileUrl) จะไม่ถูกแตะต้องและยังอยู่เหมือนเดิม
+  const isAbsent = (newStatus === 'ABSENT');
   const updatePayload = {
     status: newStatus,
     leaveReason: newStatus === 'LEAVE' ? leaveReason : null,
-    checkInTime: rec.checkInTime || (newStatus !== 'ABSENT' ? timeStr : null),
-    timestamp: rec.timestamp || (newStatus !== 'ABSENT' ? timeStr : null)
+    checkInTime: isAbsent ? null : (rec.checkInTime || timeStr),
+    timestamp: isAbsent ? null : (rec.timestamp || timeStr)
   };
 
   fetch(`${baseUrl}attendance/${activeCourseId}/${safeSession}/${stId}.json`, {
@@ -404,7 +407,13 @@ function confirmSaveStatus() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(updatePayload)
   }).then(() => {
-    sessionAttendance[stId] = Object.assign(sessionAttendance[stId] || {}, updatePayload);
+    if (isAbsent && sessionAttendance[stId]) {
+      delete sessionAttendance[stId].checkInTime;
+      delete sessionAttendance[stId].timestamp;
+      sessionAttendance[stId].status = 'ABSENT';
+    } else {
+      sessionAttendance[stId] = Object.assign(sessionAttendance[stId] || {}, updatePayload);
+    }
     closeStatusModal();
     renderDashboardUI();
   });
