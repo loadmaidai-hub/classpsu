@@ -227,7 +227,7 @@ async function submitHomework() {
 
   const btn = document.getElementById('btnSubmitWork');
   btn.disabled = true;
-  btn.innerText = "⏳ กำลังส่งไฟล์ตรงเข้า Google Drive...";
+  btn.innerText = "⏳ กำลังส่งไฟล์ตรงเข้าโฟลเดอร์...";
 
   try {
     const base64Data = await fileToBase64(currentUploadFile);
@@ -275,6 +275,6 @@ async function submitHomework() {
     console.error("Submit Error:", err);
     alert("❌ เกิดข้อผิดพลาดในการส่ง กรุณาลองใหม่อีกครั้ง");
     btn.disabled = false;
-    btn.innerText = "🚀 อัปโหลดส่งการบ้านเดี๋ยวนี้";
+    btn.innerText = "🚀 ส่งการบ้าน";
   }
 }
