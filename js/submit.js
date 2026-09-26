@@ -230,28 +230,35 @@ async function submitHomework() {
 
   const btn = document.getElementById('btnSubmitWork');
   btn.disabled = true;
-  btn.innerText = "⏳ กำลังส่งไฟล์เข้าสู่โฟลเดอร์...";
+  btn.innerText = "⏳ กำลังส่งไฟล์เข้าสู่ Google Drive...";
 
   try {
     const base64Data = await fileToBase64(currentUploadFile);
+    
+    // ดึง URL Web App จาก Config หรือตัวแปร
     const scriptUrl = (typeof CONFIG !== 'undefined' && CONFIG.UPLOAD_SCRIPT_URL)
       ? CONFIG.UPLOAD_SCRIPT_URL
       : assignmentConfig.folderUrl;
 
-    // ส่ง Payload ให้ตรงกับ Code.gs: folderUrl, fileName, fileData, mimeType
+    // เตรียม Payload ให้ตรงกับตัวแปรใน Apps Script (folderUrl, fileName, fileData, mimeType)
+    const uploadPayload = {
+      folderUrl: assignmentConfig.folderUrl,
+      fileName: currentUploadFile.name,
+      fileData: base64Data,
+      mimeType: currentUploadFile.type || "application/octet-stream"
+    };
+
+    // ส่งเข้า Apps Script ด้วย text/plain เพื่อให้ทะลุข้อจำกัด CORS
     await fetch(scriptUrl, {
       method: "POST",
       mode: "no-cors",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        folderUrl: assignmentConfig.folderUrl,
-        fileName: currentUploadFile.name,
-        fileData: base64Data,
-        mimeType: currentUploadFile.type || "application/octet-stream"
-      })
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify(uploadPayload)
     });
 
-    // บันทึกข้อมูลเข้า Firebase Attendance
+    // บันทึกหลักฐานลง Firebase Attendance
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
@@ -271,7 +278,7 @@ async function submitHomework() {
       body: JSON.stringify(payload)
     });
 
-    alert(`✅ ส่งการบ้านสำเร็จเรียบร้อย!\nไฟล์: ${currentUploadFile.name}\n(ระบบส่งตรงเข้าโฟลเดอร์ของอาจารย์แล้ว)`);
+    alert(`✅ ส่งการบ้านสำเร็จเรียบร้อย!\nไฟล์: ${currentUploadFile.name}\n(ระบบส่งตรงเข้าโฟลเดอร์ของอาจารย์เรียบร้อยแล้ว)`);
     window.location.reload();
 
   } catch (err) {
