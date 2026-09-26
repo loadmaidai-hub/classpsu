@@ -1,10 +1,11 @@
-// js/submit.js - ระบบส่งการบ้าน ออโต้รีเนม และยิงตรงเข้า Google Apps Script
+// js/submit.js - ระบบส่งการบ้าน ตรวจสอบชื่อไฟล์ ดาวน์โหลดอัตโนมัติ และอัปโหลดตรงเข้า Google Drive ผ่าน Apps Script
 
 let currentSession = "Week 1";
 let activeCourseId = '969-042G4';
 let currentRoster = {};
 let assignmentConfig = null;
 let currentUploadFile = null;
+let countdownTimerInterval = null;
 
 document.addEventListener("DOMContentLoaded", () => {
   initSubmitPage();
@@ -56,20 +57,17 @@ function loadSessionAssignmentConfig() {
     });
 }
 
-let countdownTimerInterval = null;
-
+// อัปเดตสถานะและเวลานับถอยหลัง (Countdown)
 function updateAssignmentStatusUI() {
   const badge = document.getElementById('assignmentStatusBadge');
   const btn = document.getElementById('btnSubmitWork');
   if (!badge || !btn) return;
 
-  // เคลียร์ Timer เดิมเพื่อป้องกันการนับซ้อน
   if (countdownTimerInterval) {
     clearInterval(countdownTimerInterval);
     countdownTimerInterval = null;
   }
 
-  // กรณีไม่มีลิงก์โฟลเดอร์
   if (!assignmentConfig || !assignmentConfig.folderUrl) {
     badge.className = 'badge-status';
     badge.innerText = '⚠️ ยังไม่เปิดรับการบ้าน';
@@ -77,7 +75,6 @@ function updateAssignmentStatusUI() {
     return;
   }
 
-  // กรณีมีกำหนดเวลา Deadline
   if (assignmentConfig.deadline) {
     const deadlineTime = new Date(assignmentConfig.deadline).getTime();
 
@@ -98,24 +95,18 @@ function updateAssignmentStatusUI() {
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-      // จัดฟอร์แมตเวลาแสดงผล
       const hStr = String(hours).padStart(2, '0');
       const mStr = String(minutes).padStart(2, '0');
       const sStr = String(seconds).padStart(2, '0');
 
       badge.className = 'badge-status open';
-      if (hours > 0) {
-        badge.innerText = `⏳ เหลือเวลาอีก ${hStr}:${mStr}:${sStr}`;
-      } else {
-        badge.innerText = `⏳ เหลือเวลาอีก ${mStr}:${sStr} นาที`;
-      }
+      badge.innerText = hours > 0 ? `⏳ เหลือเวลาอีก ${hStr}:${mStr}:${sStr}` : `⏳ เหลือเวลาอีก ${mStr}:${sStr} นาที`;
       btn.disabled = false;
     };
 
     updateCountdown();
     countdownTimerInterval = setInterval(updateCountdown, 1000);
   } else {
-    // กรณีเปิดรับแบบไม่ได้ตั้งเวลาปิดรับ (ไม่ระบุ Deadline)
     badge.className = 'badge-status open';
     badge.innerText = '✅ กำลังเปิดรับการบ้าน';
     btn.disabled = false;
@@ -177,7 +168,8 @@ function handleSelectedFile(file) {
 
   if (!stId || !stName) {
     alert("⚠️ กรุณากรอกรหัสนักศึกษา 10 หลักให้ถูกต้องก่อนเลือกไฟล์ เพื่อให้ระบบตรวจสอบชื่อไฟล์ได้");
-    document.getElementById('fileInput').value = '';
+    const fileInput = document.getElementById('fileInput');
+    if (fileInput) fileInput.value = '';
     return;
   }
 
@@ -185,7 +177,7 @@ function handleSelectedFile(file) {
   const ext = dotIdx !== -1 ? file.name.substring(dotIdx) : '';
   const standardName = `${stId} - ${stName}${ext}`;
 
-  // ตรวจสอบชื่อไฟล์ ถ้าไม่ถูกต้อง สั่งสร้างไฟล์ที่เปลี่ยนชื่อและดาวน์โหลดลงเครื่องทันที
+  // ตรวจสอบชื่อไฟล์ ถ้าไม่ตรงกับระเบียบ ให้แจ้งเตือน ดาวน์โหลดไฟล์ใหม่ และเตรียมอัปโหลด
   if (file.name !== standardName) {
     alert(`⚠️ ชื่อไฟล์เดิมไม่ถูกต้อง: "${file.name}"\n\nระบบดำเนินการเปลี่ยนชื่อไฟล์เป็น:\n"${standardName}"\nและได้ดาวน์โหลดไฟล์ที่ถูกต้องลงเครื่องของคุณแล้ว`);
 
@@ -198,7 +190,6 @@ function handleSelectedFile(file) {
     document.body.removeChild(a);
     URL.revokeObjectURL(blobUrl);
 
-    // บรรจุ File Object ตัวใหม่พร้อมชื่อที่ถูกต้องเพื่อเตรียมส่ง
     currentUploadFile = new File([file], standardName, { type: file.type });
   } else {
     currentUploadFile = file;
@@ -220,6 +211,7 @@ function fileToBase64(file) {
   });
 }
 
+// ฟังก์ชันส่งงานตรงเข้า Apps Script และบันทึก Firebase
 async function submitHomework() {
   const stId = document.getElementById('studentIdInput').value.trim();
   const stName = document.getElementById('studentNameInput').value.trim();
@@ -228,34 +220,32 @@ async function submitHomework() {
   if (!currentUploadFile) return alert("กรุณาเลือกไฟล์ชิ้นงานที่ต้องการส่ง");
   if (!assignmentConfig || !assignmentConfig.folderUrl) return alert("ไม่พบข้อมูลโฟลเดอร์รับงานของอาจารย์");
 
+  // ดึง Endpoint ของ Apps Script จาก config.js
+  const scriptUrl = (typeof CONFIG !== 'undefined' && (CONFIG.GOOGLE_SCRIPT_URL || CONFIG.UPLOAD_SCRIPT_URL))
+    ? (CONFIG.GOOGLE_SCRIPT_URL || CONFIG.UPLOAD_SCRIPT_URL)
+    : assignmentConfig.folderUrl;
+
   const btn = document.getElementById('btnSubmitWork');
   btn.disabled = true;
-  btn.innerText = "⏳ กำลังส่งไฟล์เข้าสู่ Google Drive...";
+  btn.innerText = "⏳ กำลังส่งไฟล์ตรงเข้า Google Drive...";
 
   try {
     const base64Data = await fileToBase64(currentUploadFile);
-    
-    // ดึง URL Web App จาก Config หรือตัวแปร
-    const scriptUrl = (typeof CONFIG !== 'undefined' && CONFIG.UPLOAD_SCRIPT_URL)
-      ? CONFIG.UPLOAD_SCRIPT_URL
-      : assignmentConfig.folderUrl;
 
-    // เตรียม Payload ให้ตรงกับตัวแปรใน Apps Script (folderUrl, fileName, fileData, mimeType)
-    const uploadPayload = {
+    // Payload ตรงตาม Code.gs ของคุณ 100%
+    const payload = {
       folderUrl: assignmentConfig.folderUrl,
       fileName: currentUploadFile.name,
       fileData: base64Data,
       mimeType: currentUploadFile.type || "application/octet-stream"
     };
 
-    // ส่งเข้า Apps Script ด้วย text/plain เพื่อให้ทะลุข้อจำกัด CORS
+    // ส่งเข้า Apps Script ด้วย POST text/plain เพื่อข้าม CORS
     await fetch(scriptUrl, {
       method: "POST",
       mode: "no-cors",
-      headers: {
-        "Content-Type": "text/plain;charset=utf-8"
-      },
-      body: JSON.stringify(uploadPayload)
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
     });
 
     // บันทึกหลักฐานลง Firebase Attendance
@@ -264,7 +254,7 @@ async function submitHomework() {
     const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
     const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
 
-    const payload = {
+    const attendanceData = {
       fileName: currentUploadFile.name,
       fileSize: `${(currentUploadFile.size / 1024 / 1024).toFixed(2)} MB`,
       submittedTime: timeStr,
@@ -275,10 +265,10 @@ async function submitHomework() {
     await fetch(`${baseUrl}attendance/${activeCourseId}/${safeSession}/${stId}.json`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(attendanceData)
     });
 
-    alert(`✅ ส่งการบ้านสำเร็จเรียบร้อย!\nไฟล์: ${currentUploadFile.name}\n(ระบบส่งตรงเข้าโฟลเดอร์ของอาจารย์เรียบร้อยแล้ว)`);
+    alert(`✅ ส่งการบ้านสำเร็จเรียบร้อย!\nไฟล์: ${currentUploadFile.name}\n(ระบบส่งตรงเข้า Google Drive ของอาจารย์เรียบร้อยแล้ว)`);
     window.location.reload();
 
   } catch (err) {
