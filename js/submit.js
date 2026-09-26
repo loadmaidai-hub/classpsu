@@ -211,41 +211,52 @@ function fileToBase64(file) {
   });
 }
 
-// ฟังก์ชันส่งงานตรงเข้า Apps Script และบันทึก Firebase
 async function submitHomework() {
   const stId = document.getElementById('studentIdInput').value.trim();
   const stName = document.getElementById('studentNameInput').value.trim();
 
-  if (!stId || !stName) return alert("กรุณากรอกรหัสนักศึกษาให้ถูกต้อง");
-  if (!currentUploadFile) return alert("กรุณาเลือกไฟล์ชิ้นงานที่ต้องการส่ง");
-  if (!assignmentConfig || !assignmentConfig.folderUrl) return alert("ไม่พบข้อมูลโฟลเดอร์รับงานของอาจารย์");
+  if (!stId || !stName) {
+    return alert("กรุณาระบุรหัสนักศึกษาและชื่อ-นามสกุลให้ครบถ้วน");
+  }
+  if (!currentUploadFile) {
+    return alert("กรุณาเลือกไฟล์ชิ้นงานที่ต้องการส่ง");
+  }
+  if (!assignmentConfig || !assignmentConfig.folderUrl) {
+    return alert("ระบบยังไม่เปิดรับการบ้าน หรือไม่พบลิงก์โฟลเดอร์ Drive ของอาจารย์");
+  }
 
   // ดึง Endpoint ของ Apps Script จาก config.js
   const scriptUrl = (typeof CONFIG !== 'undefined' && (CONFIG.GOOGLE_SCRIPT_URL || CONFIG.UPLOAD_SCRIPT_URL))
     ? (CONFIG.GOOGLE_SCRIPT_URL || CONFIG.UPLOAD_SCRIPT_URL)
-    : assignmentConfig.folderUrl;
+    : "";
+
+  if (!scriptUrl || !scriptUrl.includes('script.google.com')) {
+    return alert("❌ ไม่พบ URL ของ Google Apps Script ในไฟล์ config.js กรุณาตรวจสอบการตั้งค่า");
+  }
 
   const btn = document.getElementById('btnSubmitWork');
   btn.disabled = true;
-  btn.innerText = "⏳ กำลังส่งไฟล์ตรงเข้าโฟลเดอร์...";
+  btn.innerText = "⏳ กำลังส่งไฟล์เข้า Google Drive...";
 
   try {
     const base64Data = await fileToBase64(currentUploadFile);
 
-    // Payload ตรงตาม Code.gs ของคุณ 100%
-    const payload = {
+    // จัดโครงสร้างตัวแปรให้ตรงกับ Code.gs ของคุณ 100%
+    const payloadData = {
       folderUrl: assignmentConfig.folderUrl,
       fileName: currentUploadFile.name,
       fileData: base64Data,
       mimeType: currentUploadFile.type || "application/octet-stream"
     };
 
-    // ส่งเข้า Apps Script ด้วย POST text/plain เพื่อข้าม CORS
+    // ส่งเข้า Google Apps Script โดยใช้ text/plain เพื่อป้องกันการบล็อก CORS ของเบราว์เซอร์
     await fetch(scriptUrl, {
       method: "POST",
       mode: "no-cors",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(payload)
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify(payloadData)
     });
 
     // บันทึกหลักฐานลง Firebase Attendance
@@ -254,7 +265,7 @@ async function submitHomework() {
     const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
     const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
 
-    const attendanceData = {
+    const attendancePayload = {
       fileName: currentUploadFile.name,
       fileSize: `${(currentUploadFile.size / 1024 / 1024).toFixed(2)} MB`,
       submittedTime: timeStr,
@@ -265,16 +276,16 @@ async function submitHomework() {
     await fetch(`${baseUrl}attendance/${activeCourseId}/${safeSession}/${stId}.json`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(attendanceData)
+      body: JSON.stringify(attendancePayload)
     });
 
-    alert(`✅ ส่งการบ้านสำเร็จเรียบร้อย!\nไฟล์: ${currentUploadFile.name}\n(ระบบส่งตรงเข้า Google Drive ของอาจารย์เรียบร้อยแล้ว)`);
+    alert(`✅ ส่งการบ้านสำเร็จเรียบร้อย!\nไฟล์: ${currentUploadFile.name}\n(ระบบส่งตรงเข้าโฟลเดอร์ Google Drive ของอาจารย์แล้ว)`);
     window.location.reload();
 
   } catch (err) {
     console.error("Submit Error:", err);
     alert("❌ เกิดข้อผิดพลาดในการส่ง กรุณาลองใหม่อีกครั้ง");
     btn.disabled = false;
-    btn.innerText = "🚀 ส่งการบ้าน";
+    btn.innerText = "🚀 อัปโหลดส่งการบ้านเดี๋ยวนี้";
   }
 }
