@@ -1,4 +1,4 @@
-// js/submit.js - ระบบส่งการบ้าน ตรวจสอบชื่อไฟล์ ดาวน์โหลดอัตโนมัติ และอัปโหลดตรงเข้า Google Drive (บล็อกการส่งซ้ำ)
+// js/submit.js - ระบบส่งการบ้าน ตรวจสอบชื่อไฟล์ ดาวน์โหลดอัตโนมัติ และอัปโหลดตรงเข้า Google Drive (รับลิงก์พรีวิวไฟล์ตรง)
 
 let currentSession = "Week 1";
 let activeCourseId = '969-042G4';
@@ -59,7 +59,6 @@ function loadSessionAssignmentConfig() {
     });
 }
 
-// แถบเวลานับถอยหลัง (Countdown Timer)
 function updateAssignmentStatusUI() {
   const badge = document.getElementById('assignmentStatusBadge');
   const btn = document.getElementById('btnSubmitWork');
@@ -115,13 +114,11 @@ function updateAssignmentStatusUI() {
   }
 }
 
-// ตรวจสอบรหัส ดึงจาก STUDENT_ROSTER ใน config.js และปลดล็อกให้พิมพ์เองได้หากตกหล่น
 function lookupStudentName() {
   const idInput = document.getElementById('studentIdInput');
   const nameInput = document.getElementById('studentNameInput');
   const val = idInput.value.trim();
 
-  // 1. ค้นหาจาก STUDENT_ROSTER ใน config.js ก่อน (รวมรหัสเทส 1234567890)
   if (typeof STUDENT_ROSTER !== 'undefined' && STUDENT_ROSTER[val]) {
     nameInput.value = STUDENT_ROSTER[val];
     nameInput.readOnly = true;
@@ -129,7 +126,6 @@ function lookupStudentName() {
     return;
   }
 
-  // 2. ค้นหาจาก Firebase Roster ปัจจุบัน
   if (val.length === 10 && currentRoster[val]) {
     nameInput.value = currentRoster[val];
     nameInput.readOnly = true;
@@ -137,7 +133,6 @@ function lookupStudentName() {
     return;
   }
 
-  // 3. ค้นหาจากทุกวิชาใน Firebase
   if (val.length === 10 && allCoursesData) {
     for (let cId in allCoursesData) {
       if (allCoursesData[cId].roster && allCoursesData[cId].roster[val]) {
@@ -149,7 +144,6 @@ function lookupStudentName() {
     }
   }
 
-  // 4. กรณีไม่มีในระบบ ปลดล็อกให้กรอกชื่อ-นามสกุลเองได้
   if (val.length === 10) {
     nameInput.value = '';
     nameInput.readOnly = false;
@@ -272,22 +266,21 @@ async function submitHomework() {
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
 
   try {
-    // 1. ตรวจสอบใน Firebase ก่อนว่าเคยส่งงานในสัปดาห์นี้ไปแล้วหรือไม่ (บล็อกการส่งซ้ำ)
+    // ตรวจสอบการส่งซ้ำ
     const checkRes = await fetch(`${baseUrl}attendance/${activeCourseId}/${safeSession}/${stId}.json`);
     const studentData = await checkRes.json();
 
     if (studentData && (studentData.fileName || studentData.submittedTime)) {
       alert(`❌ คุณได้ส่งการบ้านไปแล้วเมื่อเวลา ${studentData.submittedTime || '-'}\n(ระบบอนุญาตให้ส่งได้เพียงครั้งเดียว หากต้องการส่งใหม่ กรุณาติดต่ออาจารย์ผู้สอนเพื่อขอรีเซ็ต)`);
       btn.disabled = false;
-      btn.innerText = "🚀 อัปโหลดส่งการบ้านเดี๋ยวนี้";
+      btn.innerText = "🚀 ส่งการบ้าน";
       return;
     }
 
-    btn.innerText = "⏳ กำลังส่งไฟล์ตรงเข้าโฟลเดอร์...";
+    btn.innerText = "⏳ กำลังส่งไฟล์เข้าโฟลเดอร์...";
 
     const base64Data = await fileToBase64(currentUploadFile);
 
-    // 2. ส่งไฟล์เข้า Google Apps Script
     const payload = {
       folderUrl: assignmentConfig.folderUrl,
       fileName: currentUploadFile.name,
@@ -295,14 +288,23 @@ async function submitHomework() {
       mimeType: currentUploadFile.type || "application/octet-stream"
     };
 
-    await fetch(scriptUrl, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(payload)
-    });
+    // ส่งเข้า Apps Script และรอรับค่า JSON ที่มี fileUrl กลับมา
+    let directFileUrl = assignmentConfig.folderUrl;
+    try {
+      const res = await fetch(scriptUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      });
+      const resJson = await res.json();
+      if (resJson && resJson.fileUrl) {
+        directFileUrl = resJson.fileUrl; // ได้ลิงก์ https://drive.google.com/file/d/.../view ตรงๆ
+      }
+    } catch (e) {
+      console.warn("Could not parse JSON response directly, saving fallback folder URL", e);
+    }
 
-    // 3. บันทึกเฉพาะข้อมูลส่งงาน ไม่ทับเวลาเข้าเรียน (checkInTime)
+    // บันทึกสถานะเข้า Firebase
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
@@ -310,7 +312,7 @@ async function submitHomework() {
       fileName: currentUploadFile.name,
       fileSize: `${(currentUploadFile.size / 1024 / 1024).toFixed(2)} MB`,
       submittedTime: timeStr,
-      fileUrl: assignmentConfig.folderUrl
+      fileUrl: directFileUrl
     };
 
     await fetch(`${baseUrl}attendance/${activeCourseId}/${safeSession}/${stId}.json`, {
@@ -319,7 +321,7 @@ async function submitHomework() {
       body: JSON.stringify(attendancePayload)
     });
 
-    alert(`✅ ส่งการบ้านสำเร็จเรียบร้อย!\nไฟล์: ${currentUploadFile.name}\n(ระบบส่งตรงเข้าโฟลเดอร์ของอาจารย์เรียบร้อยแล้ว)`);
+    alert(`✅ ส่งการบ้านสำเร็จเรียบร้อย!\nไฟล์: ${currentUploadFile.name}\n(ระบบส่งตรงเข้าโฟลเดอร์โฟลเดอร์ของอาจารย์เรียบร้อยแล้ว)`);
     window.location.reload();
 
   } catch (err) {
