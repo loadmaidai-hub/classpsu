@@ -59,7 +59,7 @@ function loadSessionAssignmentConfig() {
     });
 }
 
-// แถบสถานะนับเวลาถอยหลัง (Countdown Timer)
+// แถบเวลานับถอยหลัง (Countdown Timer)
 function updateAssignmentStatusUI() {
   const badge = document.getElementById('assignmentStatusBadge');
   const btn = document.getElementById('btnSubmitWork');
@@ -115,21 +115,21 @@ function updateAssignmentStatusUI() {
   }
 }
 
-// ตรวจหารหัสนักศึกษา (แก้ปัญหารหัสเทส 1234567890 และป้องกันปัญหากับนักศึกษาทุกคน)
+// ตรวจสอบรหัส ดึงจาก STUDENT_ROSTER ใน config.js และปลดล็อกให้พิมพ์เองได้หากตกหล่น
 function lookupStudentName() {
   const idInput = document.getElementById('studentIdInput');
   const nameInput = document.getElementById('studentNameInput');
   const val = idInput.value.trim();
 
-  // 1. เคสรหัสทดสอบระบบ
-  if (val === "1234567890" || val === "0000") {
-    nameInput.value = "ทดสอบระบบ";
+  // 1. ค้นหาจาก STUDENT_ROSTER ใน config.js ก่อน (มีรหัส 1234567890 และรายชื่อทั้งหมด)
+  if (typeof STUDENT_ROSTER !== 'undefined' && STUDENT_ROSTER[val]) {
+    nameInput.value = STUDENT_ROSTER[val];
     nameInput.readOnly = true;
     nameInput.classList.add('readonly');
     return;
   }
 
-  // 2. หาในวิชาปัจจุบัน
+  // 2. ค้นหาจาก Firebase Roster ปัจจุบัน
   if (val.length === 10 && currentRoster[val]) {
     nameInput.value = currentRoster[val];
     nameInput.readOnly = true;
@@ -137,7 +137,7 @@ function lookupStudentName() {
     return;
   }
 
-  // 3. หาจากทุกวิชา
+  // 3. ค้นหาจากทุกวิชาใน Firebase
   if (val.length === 10 && allCoursesData) {
     for (let cId in allCoursesData) {
       if (allCoursesData[cId].roster && allCoursesData[cId].roster[val]) {
@@ -149,12 +149,12 @@ function lookupStudentName() {
     }
   }
 
-  // 4. กรณีพิมพ์ครบ 10 หลักแล้วไม่มีในระบบ (ปลดล็อกให้พิมพ์เองได้ ไม่ติดขัด)
+  // 4. กรณีไม่มีในระบบ ปลดล็อกให้กรอกชื่อ-นามสกุลเองได้
   if (val.length === 10) {
     nameInput.value = '';
     nameInput.readOnly = false;
     nameInput.classList.remove('readonly');
-    nameInput.placeholder = "กรุณากรอก ชื่อ-นามสกุล ของคุณ";
+    nameInput.placeholder = "ไม่พบในระบบ กรุณากรอก ชื่อ-นามสกุล ของคุณ";
   } else {
     nameInput.value = '';
     nameInput.readOnly = true;
@@ -215,7 +215,6 @@ function handleSelectedFile(file) {
   const ext = dotIdx !== -1 ? file.name.substring(dotIdx) : '';
   const standardName = `${stId} - ${stName}${ext}`;
 
-  // ตรวจสอบชื่อไฟล์ ถ้าไม่ตรงให้ดาวน์โหลดไฟล์ชื่อใหม่ลงเครื่องทันที
   if (file.name !== standardName) {
     alert(`⚠️ ชื่อไฟล์เดิมไม่ถูกต้อง: "${file.name}"\n\nระบบดำเนินการเปลี่ยนชื่อไฟล์เป็น:\n"${standardName}"\nและได้ดาวน์โหลดไฟล์ที่ถูกต้องลงเครื่องของคุณแล้ว`);
 
@@ -249,7 +248,6 @@ function fileToBase64(file) {
   });
 }
 
-// ฟังก์ชันส่งงานตรงเข้า Apps Script และบันทึก Firebase
 async function submitHomework() {
   const stId = document.getElementById('studentIdInput').value.trim();
   const stName = document.getElementById('studentNameInput').value.trim();
@@ -258,13 +256,13 @@ async function submitHomework() {
   if (!currentUploadFile) return alert("กรุณาเลือกไฟล์ชิ้นงานที่ต้องการส่ง");
   if (!assignmentConfig || !assignmentConfig.folderUrl) return alert("ไม่พบข้อมูลโฟลเดอร์รับงานของอาจารย์");
 
-  // ดึง Endpoint ของ Apps Script จาก config.js โดยตรง
-  const scriptUrl = (typeof CONFIG !== 'undefined' && (CONFIG.GOOGLE_SCRIPT_URL || CONFIG.UPLOAD_SCRIPT_URL))
-    ? (CONFIG.GOOGLE_SCRIPT_URL || CONFIG.UPLOAD_SCRIPT_URL)
+  // รองรับทั้ง CONFIG.GAS_UPLOAD_URL และ CONFIG.GOOGLE_SCRIPT_URL
+  const scriptUrl = (typeof CONFIG !== 'undefined' && (CONFIG.GAS_UPLOAD_URL || CONFIG.GOOGLE_SCRIPT_URL || CONFIG.UPLOAD_SCRIPT_URL))
+    ? (CONFIG.GAS_UPLOAD_URL || CONFIG.GOOGLE_SCRIPT_URL || CONFIG.UPLOAD_SCRIPT_URL)
     : "";
 
   if (!scriptUrl || !scriptUrl.includes('script.google.com')) {
-    return alert("❌ ไม่พบลิงก์ GOOGLE_SCRIPT_URL ใน config.js กรุณาตรวจสอบ");
+    return alert("❌ ไม่พบลิงก์ Google Apps Script ใน config.js กรุณาตรวจสอบ");
   }
 
   const btn = document.getElementById('btnSubmitWork');
@@ -274,7 +272,7 @@ async function submitHomework() {
   try {
     const base64Data = await fileToBase64(currentUploadFile);
 
-    // เตรียม Payload ให้ตรงกับ Code.gs: folderUrl, fileName, fileData, mimeType
+    // Payload ตรงตามพารามิเตอร์ของ Code.gs: folderUrl, fileName, fileData, mimeType
     const payload = {
       folderUrl: assignmentConfig.folderUrl,
       fileName: currentUploadFile.name,
@@ -282,7 +280,7 @@ async function submitHomework() {
       mimeType: currentUploadFile.type || "application/octet-stream"
     };
 
-    // ส่งเข้า Apps Script ด้วย POST mode no-cors
+    // ส่งเข้า Apps Script ด้วย POST text/plain เพื่อข้าม CORS
     await fetch(scriptUrl, {
       method: "POST",
       mode: "no-cors",
