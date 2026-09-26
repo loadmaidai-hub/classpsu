@@ -121,20 +121,21 @@
     </div>
   </div>
 
-  <!-- MODAL 1: ปรับสถานะการเข้าเรียน -->
+  <!-- MODAL 1: ปรับสถานะการเข้าเรียน และ รีเซ็ตการส่งการบ้านรายบุคคล -->
   <div id="attendanceStatusModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 480px; padding: 2rem;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem;">
-        <h3 style="margin: 0; font-size: 1.3rem; color: #1E1B4B; font-weight: 800;">✏️ ปรับสถานะการเข้าเรียน</h3>
+        <h3 style="margin: 0; font-size: 1.3rem; color: #1E1B4B; font-weight: 800;">✏️ ข้อมูลนักศึกษารายบุคคล</h3>
         <button onclick="closeStatusModal()" style="background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #64748B;">✕</button>
       </div>
 
-      <div style="margin-bottom: 1.2rem;">
-        <div style="font-size: 0.85rem; font-weight: 500; color: #64748B; margin-bottom: 0.2rem;">นักศึกษา:</div>
-        <div id="modalStudentName" style="font-size: 1.2rem; font-weight: 800; color: #1E1B4B;">-</div>
+      <div style="margin-bottom: 1.2rem; background: #F8FAFC; padding: 0.8rem 1rem; border-radius: 14px; border: 1px solid #E2E8F0;">
+        <div style="font-size: 0.82rem; font-weight: 600; color: #64748B; margin-bottom: 0.2rem;">นักศึกษา:</div>
+        <div id="modalStudentName" style="font-size: 1.15rem; font-weight: 800; color: #1E1B4B;">-</div>
+        <div id="modalStudentId" style="font-size: 0.88rem; font-weight: 700; color: #4338CA; margin-top: 0.2rem;">-</div>
       </div>
 
-      <div style="margin-bottom: 1.8rem;">
+      <div style="margin-bottom: 1.5rem;">
         <label style="font-size: 0.9rem; font-weight: 700; color: #1E1B4B; display: block; margin-bottom: 0.4rem;">เลือกสถานะการเข้าเรียน:</label>
         <select id="modalStatusSelect" class="meta-select" style="height: 48px; font-size: 0.95rem; border-radius: 14px;">
           <option value="PRESENT">✅ เข้าเรียนตรงเวลา (Present)</option>
@@ -144,9 +145,17 @@
         </select>
       </div>
 
+      <!-- ปุ่มรีเซ็ตการส่งการบ้านเฉพาะคนนี้ -->
+      <div style="margin-bottom: 1.5rem; padding-top: 1rem; border-top: 1px dashed #E2E8F0;">
+        <label style="font-size: 0.85rem; font-weight: 700; color: #64748B; display: block; margin-bottom: 0.4rem;">จัดการงานที่ส่ง:</label>
+        <button type="button" onclick="confirmResetStudentSubmission()" style="width: 100%; padding: 0.65rem; border-radius: 12px; border: 1.5px solid #FECACA; background: #FEF2F2; color: #DC2626; font-weight: 700; font-family: var(--font-main); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.4rem; font-size: 0.88rem;">
+          🔄 รีเซ็ตการส่งการบ้าน
+        </button>
+      </div>
+
       <div style="display: flex; justify-content: flex-end; gap: 0.8rem;">
-        <button type="button" onclick="closeStatusModal()" style="padding: 0.65rem 1.4rem; border-radius: 9999px; border: 1.5px solid #CBD5E1; background: white; font-weight: 700; font-family: var(--font-main); cursor: pointer; color: #475569;">ยกเลิก (Esc)</button>
-        <button type="button" onclick="confirmSaveStatus()" style="padding: 0.65rem 1.6rem; border-radius: 9999px; border: none; background: #4338CA; color: white; font-weight: 700; font-family: var(--font-main); cursor: pointer; box-shadow: 0 4px 15px rgba(67, 56, 202, 0.3);">บันทึกสถานะ (Enter) 💾</button>
+        <button type="button" onclick="closeStatusModal()" style="padding: 0.65rem 1.4rem; border-radius: 9999px; border: 1.5px solid #CBD5E1; background: white; font-weight: 700; font-family: var(--font-main); cursor: pointer; color: #475569;">ยกเลิก</button>
+        <button type="button" onclick="confirmSaveStatus()" style="padding: 0.65rem 1.6rem; border-radius: 9999px; border: none; background: #4338CA; color: white; font-weight: 700; font-family: var(--font-main); cursor: pointer; box-shadow: 0 4px 15px rgba(67, 56, 202, 0.3);">บันทึกสถานะ 💾</button>
       </div>
     </div>
   </div>
