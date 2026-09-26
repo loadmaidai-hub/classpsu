@@ -1,553 +1,643 @@
-// js/admin.js - แผงควบคุมอาจารย์ผู้สอน (Admin Dashboard)
+// js/admin.js - ระบบบริหารจัดการหลังบ้านอาจารย์ (Admin Control Center)
 
-let currentSession = CONFIG.SESSIONS[0];
-let realtimeData = {};
-let currentFilter = 'ALL';
-let currentEditStudentId = null;
-
-// ตารางตัดรอบสัปดาห์ใหม่ ทุกวันจันทร์ (เริ่ม 00:00 น. หลังปิดรับงานคืนวันอาทิตย์)
-const SESSION_DATES = [
-  new Date(2026, 8, 14, 0, 0, 0), // Week 1: เริ่มจันทร์ 14 ก.ย. 2569
-  new Date(2026, 8, 21, 0, 0, 0), // Week 2: เริ่มจันทร์ 21 ก.ย. 2569
-  new Date(2026, 8, 28, 0, 0, 0), // Week 3: เริ่มจันทร์ 28 ก.ย. 2569
-  new Date(2026, 9, 5, 0, 0, 0),  // Week 4: เริ่มจันทร์ 5 ต.ค. 2569
-  new Date(2026, 9, 12, 0, 0, 0), // Week 5: เริ่มจันทร์ 12 ต.ค. 2569
-  new Date(2026, 9, 19, 0, 0, 0), // Week 6: เริ่มจันทร์ 19 ต.ค. 2569
-  new Date(2026, 9, 26, 0, 0, 0), // Week 7: เริ่มจันทร์ 26 ต.ค. 2569
-  new Date(2026, 10, 2, 0, 0, 0), // Week 8: เริ่มจันทร์ 2 พ.ย. 2569
-  new Date(2026, 10, 9, 0, 0, 0), // Week 9: เริ่มจันทร์ 9 พ.ย. 2569
-  new Date(2026, 10, 16, 0, 0, 0),// Week 10: เริ่มจันทร์ 16 พ.ย. 2569
-  new Date(2026, 10, 23, 0, 0, 0) // Week 11: เริ่มจันทร์ 23 พ.ย. 2569
-];
+let coursesData = {};
+let activeCourseId = null;
+let currentSession = localStorage.getItem('adminSelectedSession') || (typeof CONFIG !== 'undefined' && CONFIG.SESSIONS ? CONFIG.SESSIONS[0] : "Week 1");
+let activeRoster = {};
+let sessionAttendance = {};
+let allAttendance = {};
+let currentAssignmentConfig = null;
+let tableFilter = 'ALL';
+let currentEditingStudentId = null;
 
 document.addEventListener("DOMContentLoaded", () => {
-  const isAuth = sessionStorage.getItem("adminAuthenticated");
-  if (isAuth === "true") {
-    unlockAdminDashboard();
+  if (sessionStorage.getItem("adminAuthenticated") === "true") {
+    initAdminDashboard();
   }
+  setupKeyboardShortcuts();
 });
 
-// 1. ระบบยืนยันรหัสผ่านเข้าแดชบอร์ด
-function verifyAdminPassword() {
-  const inputPass = document.getElementById('adminPasswordInput').value;
-  const errorMsg = document.getElementById('authErrorMsg');
-
-  if (inputPass === CONFIG.TEACHER_PASSWORD) {
-    sessionStorage.setItem("adminAuthenticated", "true");
-    unlockAdminDashboard();
-  } else {
-    errorMsg.style.display = 'block';
-    document.getElementById('adminPasswordInput').value = '';
-    document.getElementById('adminPasswordInput').focus();
-  }
-}
-
-function unlockAdminDashboard() {
-  document.getElementById('authGate').style.display = 'none';
-  document.getElementById('adminContent').style.display = 'block';
-  init();
-}
-
-function logoutAdmin() {
-  sessionStorage.removeItem("adminAuthenticated");
-  location.reload();
-}
-
-// 2. คำนวณหาสัปดาห์ปัจจุบันตามปฏิทินจริง (ทุกวันจันทร์)
-function getAutoCalculatedSession() {
-  const today = new Date();
-  let matchedIndex = 0;
-  for (let i = 0; i < SESSION_DATES.length; i++) {
-    if (today >= SESSION_DATES[i]) {
-      matchedIndex = i;
+// ตรวจจับปุ่ม Esc และ Enter สำหรับทุก Modal
+function setupKeyboardShortcuts() {
+  document.addEventListener("keydown", (e) => {
+    // 1. ปุ่ม Escape: สั่งปิด Modal ที่เปิดอยู่ทั้งหมด
+    if (e.key === "Escape" || e.key === "Esc") {
+      closeStatusModal();
+      if (typeof closeSettingsModal === 'function') closeSettingsModal();
+      if (typeof closeOverviewModal === 'function') closeOverviewModal();
+      return;
     }
-  }
-  return CONFIG.SESSIONS[matchedIndex];
+
+    // 2. ปุ่ม Enter: ยืนยันการทำงานตาม Modal ที่กำลังเปิดอยู่
+    if (e.key === "Enter") {
+      const statusModal = document.getElementById('attendanceStatusModal');
+      const settingsModal = document.getElementById('settingsModal');
+
+      // ถ้าเปิด Modal ปรับสถานะอยู่
+      if (statusModal && statusModal.style.display === 'flex') {
+        e.preventDefault();
+        confirmSaveStatus();
+        return;
+      }
+
+      // ถ้าเปิด Modal ตั้งค่าห้องเรียนอยู่ และกำลังโฟกัสในช่องกรอกเพิ่มนักศึกษา
+      if (settingsModal && settingsModal.style.display === 'flex') {
+        const idInput = document.getElementById('newStudentId');
+        const nameInput = document.getElementById('newStudentName');
+        if (document.activeElement === idInput || document.activeElement === nameInput) {
+          e.preventDefault();
+          addSingleStudent();
+        }
+      }
+    }
+  });
 }
 
-// 3. ฟังก์ชันเริ่มต้นทำงาน (Init)
-function init() {
-  const sel = document.getElementById('sessionSelect');
-  sel.innerHTML = CONFIG.SESSIONS.map(s => `<option value="${s}">📅 ${s}</option>`).join('') +
-                  `<option value="SUMMARY">📊 [สรุปภาพรวม 11 สัปดาห์สะสม]</option>`;
+function initAdminDashboard() {
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
 
-  fetch(`${CONFIG.FIREBASE_DB_URL}current_session.json`)
+  fetch(`${baseUrl}current_session.json`)
     .then(r => r.json())
     .then(serverSession => {
-      const autoSession = getAutoCalculatedSession();
-      currentSession = serverSession || autoSession;
-      sel.value = currentSession;
-      loadCutoff();
-      loadAssignmentConfig();
-      fetchData();
+      const saved = localStorage.getItem('adminSelectedSession');
+      if (saved) {
+        currentSession = saved;
+      } else if (serverSession) {
+        currentSession = serverSession;
+        localStorage.setItem('adminSelectedSession', currentSession);
+      }
+      initSessionDropdown();
+      return fetch(`${baseUrl}courses.json`);
     })
-    .catch(() => {
-      currentSession = getAutoCalculatedSession();
-      sel.value = currentSession;
-      loadCutoff();
-      loadAssignmentConfig();
-      fetchData();
+    .then(r => r.json())
+    .then(courses => {
+      coursesData = courses || {};
+      const courseIds = Object.keys(coursesData);
+      const sel = document.getElementById('adminCourseSelect');
+
+      if (courseIds.length === 0) return;
+
+      if (sel) {
+        sel.innerHTML = courseIds.map(cid => `
+          <option value="${cid}">${cid} - ${coursesData[cid].courseName || ''}</option>
+        `).join('');
+      }
+
+      const savedCourse = localStorage.getItem('lastSelectedCourse');
+      activeCourseId = (savedCourse && coursesData[savedCourse]) ? savedCourse : courseIds[0];
+      if (sel) sel.value = activeCourseId;
+
+      onAdminCourseChange();
+    })
+    .catch(err => {
+      console.error("Init Error:", err);
+      initSessionDropdown();
     });
 }
 
-// 4. จัดการเวลาตัดสาย (Cutoff Time)
-function saveCutoff() {
-  const time = document.getElementById('cutoffTime').value;
-  const safe = sanitizeKey(currentSession);
-  localStorage.setItem(`cutoff_${safe}`, time);
-  fetch(`${CONFIG.FIREBASE_DB_URL}session_settings/${safe}/cutoffTime.json`, {
+function initSessionDropdown() {
+  const sel = document.getElementById('sessionSelect');
+  if (sel && CONFIG && CONFIG.SESSIONS) {
+    sel.innerHTML = CONFIG.SESSIONS.map(s => `<option value="${s}">📅 ${s}</option>`).join('');
+    sel.value = currentSession;
+  }
+}
+
+function onAdminCourseChange() {
+  const sel = document.getElementById('adminCourseSelect');
+  if (sel) activeCourseId = sel.value;
+  localStorage.setItem('lastSelectedCourse', activeCourseId);
+
+  const course = coursesData[activeCourseId];
+  if (course) {
+    activeRoster = course.roster || {};
+    const subEl = document.getElementById('adminCourseSubtitle');
+    if (subEl) {
+      subEl.innerText = `${course.courseId} ${course.courseName}`;
+    }
+
+    const secInput = document.getElementById('courseSectionInput');
+    const roomInput = document.getElementById('courseRoomInput');
+    const daySelect = document.getElementById('courseDaySelect');
+    const timeInput = document.getElementById('courseTimeInput');
+
+    if (secInput) secInput.value = (course.section || '').replace(/Sec\s*/i, '');
+    if (roomInput) roomInput.value = (course.room || '').replace(/ห้อง\s*/i, '');
+
+    // แยกวันและเวลาลง Dropdown และช่องกรอก
+    if (course.dayTime) {
+      const parts = course.dayTime.trim().split(/\s+(.+)/);
+      if (daySelect && parts[0]) daySelect.value = parts[0];
+      if (timeInput) timeInput.value = parts[1] || '';
+    } else {
+      if (daySelect && course.day) daySelect.value = course.day;
+      if (timeInput) timeInput.value = course.time || '';
+    }
+  }
+
+  loadSessionData();
+  loadAssignmentSettings();
+  renderStudentRosterManager();
+  loadAllAttendanceForOverview();
+}
+
+function onAdminSessionChange() {
+  const sel = document.getElementById('sessionSelect');
+  if (!sel) return;
+
+  currentSession = sel.value;
+  localStorage.setItem('adminSelectedSession', currentSession);
+
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+  fetch(`${baseUrl}current_session.json`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(currentSession)
+  });
+
+  loadSessionData();
+  loadAssignmentSettings();
+}
+
+// โหลดข้อมูลเข้าเรียน (รองรับข้อมูล Week 1 จากโค้ดเดิมทุกรูปแบบอย่างแท้จริง)
+function loadSessionData() {
+  const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+
+  // 1. ดึงข้อมูลทั้งก้อนของ /attendance.json มาตรวจสอบ
+  fetch(`${baseUrl}attendance.json`)
+    .then(r => r.json())
+    .then(rootAttendance => {
+      if (!rootAttendance) {
+        sessionAttendance = {};
+        renderDashboardUI();
+        return;
+      }
+
+      let targetData = null;
+
+      // แบบที่ 1 (V.2): อยู่ใต้ Course ID เช่น attendance['969-042G4']['Week 1...']
+      if (rootAttendance[activeCourseId]) {
+        const courseData = rootAttendance[activeCourseId];
+        targetData = courseData[currentSession] || 
+                     courseData[safeSession] || 
+                     courseData[decodeURIComponent(safeSession)];
+        
+        if (!targetData) {
+          // วนหาคีย์ที่ชื่อคล้ายกันใน Course
+          const kMatch = Object.keys(courseData).find(k => 
+            k.toLowerCase().includes(currentSession.toLowerCase()) || 
+            (currentSession.includes("Week 1") && k.includes("Week 1"))
+          );
+          if (kMatch) targetData = courseData[kMatch];
+        }
+      }
+
+      // แบบที่ 2 (V.1 เดิม): อยู่ที่ Root ของ attendance ตรงๆ เช่น attendance['Week 1 (16 ก.ย. 2569)']
+      if (!targetData) {
+        targetData = rootAttendance[currentSession] || 
+                     rootAttendance[safeSession] || 
+                     rootAttendance[decodeURIComponent(safeSession)];
+      }
+
+      // แบบที่ 3: กวาดหาที่ Root จากทุกคีย์ที่มีคำว่า Week 1 หรือ 16 ก.ย.
+      if (!targetData) {
+        const rootMatch = Object.keys(rootAttendance).find(k => 
+          (currentSession.includes("Week 1") && k.includes("Week 1")) ||
+          k.includes("16 ก.ย.") ||
+          k.toLowerCase().replace(/[^a-z0-9]/g, '') === currentSession.toLowerCase().replace(/[^a-z0-9]/g, '')
+        );
+        if (rootMatch && typeof rootAttendance[rootMatch] === 'object') {
+          targetData = rootAttendance[rootMatch];
+        }
+      }
+
+      // นำข้อมูลที่เจอมาใช้งาน
+      sessionAttendance = targetData || {};
+      
+      console.log("Loaded Attendance Data for", currentSession, ":", sessionAttendance);
+      renderDashboardUI();
+    })
+    .catch(err => {
+      console.error("Error loading session data:", err);
+      sessionAttendance = {};
+      renderDashboardUI();
+    });
+}
+
+function renderDashboardUI() {
+  const rosterIds = Object.keys(activeRoster);
+  let presentCount = 0;
+  let lateCount = 0;
+  let absentCount = 0;
+  let leaveCount = 0;
+  let submittedCount = 0;
+
+  let rankedList = [];
+
+  rosterIds.forEach(id => {
+    const rec = sessionAttendance[id] || {};
+    const isPresent = rec.status === 'PRESENT';
+    const isLate = rec.status === 'LATE';
+    const isLeave = rec.status === 'LEAVE';
+    const hasFile = !!rec.fileUrl;
+
+    if (isPresent) presentCount++;
+    else if (isLate) lateCount++;
+    else if (isLeave) leaveCount++;
+    else absentCount++;
+
+    if (hasFile) submittedCount++;
+
+    rankedList.push({
+      id,
+      name: activeRoster[id],
+      score: rec.score !== undefined ? Number(rec.score) : -1,
+      rec
+    });
+  });
+
+  // อัปเดตการ์ด 4 สถิติ
+  const totalStudents = rosterIds.length;
+  document.getElementById('statTotalStudents').innerText = totalStudents;
+  document.getElementById('statPresent').innerText = presentCount;
+  document.getElementById('statLate').innerText = lateCount;
+  document.getElementById('statSubmitted').innerText = submittedCount;
+  document.getElementById('statSubTotal').innerText = totalStudents;
+  document.getElementById('countAll').innerText = totalStudents;
+
+  // Render Top 5 Cards
+  rankedList.sort((a, b) => b.score - a.score);
+  const topGrid = document.getElementById('topRankGrid');
+  if (topGrid) {
+    topGrid.innerHTML = '';
+    const medals = ['🥇', '🥈', '🥉', '#4', '#5'];
+    for (let i = 0; i < 5; i++) {
+      const st = rankedList[i];
+      if (st) {
+        topGrid.innerHTML += `
+          <div class="top-card">
+            <div class="top-card-rank">${medals[i]}</div>
+            <div class="top-card-name" title="${st.name}">${st.name}</div>
+            <div class="top-card-id">${st.id}</div>
+            <div class="top-card-score">${st.score > -1 ? st.score + ' แต้ม' : 'ยังไม่มีคะแนน'}</div>
+          </div>
+        `;
+      } else {
+        topGrid.innerHTML += `
+          <div class="top-card" style="opacity: 0.4;">
+            <div class="top-card-rank">${medals[i]}</div>
+            <div class="top-card-name">-</div>
+            <div class="top-card-id">-</div>
+            <div class="top-card-score">-</div>
+          </div>
+        `;
+      }
+    }
+  }
+
+  renderTableRows(rankedList);
+}
+
+function setTableFilter(flt, btn) {
+  tableFilter = flt;
+  document.querySelectorAll('.f-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderDashboardUI();
+}
+
+function renderTableRows(rankedList) {
+  const tbody = document.getElementById('adminTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  rankedList.forEach((st, idx) => {
+    const rec = st.rec;
+    const isPresent = rec.status === 'PRESENT';
+    const isLate = rec.status === 'LATE';
+    const isLeave = rec.status === 'LEAVE';
+    const hasFile = !!rec.fileUrl;
+
+    if (tableFilter === 'NOT_SUBMITTED' && hasFile) return;
+    if (tableFilter === 'ABSENT' && (isPresent || isLate || isLeave)) return;
+    if (tableFilter === 'LEAVE' && !isLeave) return;
+
+    let statusBadge = `<span class="tag tag-absent" onclick="openStatusModal('${st.id}')">ขาดเรียน</span>`;
+    if (isLeave) statusBadge = `<span class="tag tag-leave" onclick="openStatusModal('${st.id}')" title="${rec.leaveReason || ''}">ลาเรียน</span>`;
+    else if (isPresent) statusBadge = `<span class="tag tag-present" onclick="openStatusModal('${st.id}')">เข้าห้องแล้ว</span>`;
+    else if (isLate) statusBadge = `<span class="tag tag-late" onclick="openStatusModal('${st.id}')">มาสาย</span>`;
+
+    let fileDisplay = '<span class="tag tag-waiting">ยังไม่ส่ง</span>';
+    if (hasFile) {
+      fileDisplay = `<a href="${rec.fileUrl}" target="_blank" style="color:#4338CA; font-weight:700; text-decoration:none;">📄 ดูไฟล์ (${rec.fileSize || 'งาน'})</a>`;
+    }
+
+    const ipDisplay = rec.ip || rec.ipAddress || '-';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-weight:700; color:#64748B;">#${idx + 1}</td>
+      <td style="font-weight:700; color:#1E1B4B;">${st.id}</td>
+      <td>${st.name}</td>
+      <td>${statusBadge}</td>
+      <td>${rec.timestamp || rec.submittedTime || '-'}</td>
+      <td style="font-weight:700; color:#4338CA;">${st.score > -1 ? st.score : '-'}</td>
+      <td><span class="${hasFile ? 'tag tag-submitted' : 'tag tag-waiting'}">${hasFile ? 'ส่งแล้ว' : 'ยังไม่ส่ง'}</span></td>
+      <td>${fileDisplay}</td>
+      <td style="font-family: var(--font-main); font-size: 0.8rem; color: #64748B;">${ipDisplay}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// Modal ปรับสถานะการเข้าเรียน
+function openStatusModal(stId) {
+  currentEditingStudentId = stId;
+  const studentName = activeRoster[stId] || '';
+  const rec = sessionAttendance[stId] || {};
+  const currentSt = rec.status || 'ABSENT';
+
+  const nameEl = document.getElementById('modalStudentName');
+  const selEl = document.getElementById('modalStatusSelect');
+  if (nameEl) nameEl.innerText = `${stId} - ${studentName}`;
+  if (selEl) {
+    selEl.value = currentSt;
+    setTimeout(() => selEl.focus(), 50); // โฟกัส Dropdown ทันทีเพื่อให้กด Enter ได้ทันที
+  }
+
+  const modal = document.getElementById('attendanceStatusModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeStatusModal() {
+  currentEditingStudentId = null;
+  const modal = document.getElementById('attendanceStatusModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function confirmSaveStatus() {
+  if (!currentEditingStudentId) return;
+
+  const stId = currentEditingStudentId;
+  const newStatus = document.getElementById('modalStatusSelect').value;
+  const rec = sessionAttendance[stId] || {};
+
+  let leaveReason = rec.leaveReason || null;
+  if (newStatus === 'LEAVE') {
+    leaveReason = prompt("ระบุเหตุผลการลา (ถ้ามี):", leaveReason || "ลาเรียน") || "ลาเรียน";
+  }
+
+  const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+
+  const now = new Date();
+  const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+  const updatePayload = {
+    status: newStatus,
+    leaveReason: newStatus === 'LEAVE' ? leaveReason : null,
+    timestamp: rec.timestamp || (newStatus !== 'ABSENT' ? timeStr : null)
+  };
+
+  fetch(`${baseUrl}attendance/${activeCourseId}/${safeSession}/${stId}.json`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updatePayload)
+  }).then(() => {
+    sessionAttendance[stId] = Object.assign(sessionAttendance[stId] || {}, updatePayload);
+    closeStatusModal();
+    renderDashboardUI();
+  });
+}
+
+function loadAssignmentSettings() {
+  const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+
+  fetch(`${baseUrl}session_settings/${activeCourseId}/${safeSession}/assignmentConfig.json`)
+    .then(r => r.json())
+    .then(cfg => {
+      if (cfg) {
+        applyAssignmentConfig(cfg);
+      } else {
+        const rawKey = encodeURIComponent(currentSession);
+        fetch(`${baseUrl}session_settings/${activeCourseId}/${rawKey}/assignmentConfig.json`)
+          .then(r => r.json())
+          .then(legacyCfg => applyAssignmentConfig(legacyCfg))
+          .catch(() => resetAssignmentInputs());
+      }
+    })
+    .catch(() => resetAssignmentInputs());
+}
+
+function applyAssignmentConfig(cfg) {
+  currentAssignmentConfig = cfg;
+  const fInput = document.getElementById('hwFolderUrl');
+  const dInput = document.getElementById('hwDeadline');
+  if (cfg) {
+    if (fInput) fInput.value = cfg.folderUrl || '';
+    if (dInput) dInput.value = cfg.deadline || '';
+  } else {
+    resetAssignmentInputs();
+  }
+}
+
+function saveAssignmentSettings() {
+  const folderUrl = document.getElementById('hwFolderUrl').value.trim();
+  const deadline = document.getElementById('hwDeadline').value;
+
+  const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+
+  const configData = {
+    folderUrl: folderUrl,
+    deadline: deadline,
+    updatedAt: new Date().toISOString()
+  };
+
+  fetch(`${baseUrl}session_settings/${activeCourseId}/${safeSession}/assignmentConfig.json`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(configData)
+  }).then(() => {
+    alert(`✓ บันทึกการตั้งค่าโฟลเดอร์สำหรับ [${currentSession}] สำเร็จ`);
+  });
+}
+
+function resetAssignmentInputs() {
+  const fInput = document.getElementById('hwFolderUrl');
+  const dInput = document.getElementById('hwDeadline');
+  if (fInput) fInput.value = '';
+  if (dInput) dInput.value = '';
+}
+
+function saveCutoffTime() {
+  const time = document.getElementById('cutoffTimeInput').value;
+  const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+
+  fetch(`${baseUrl}session_settings/${activeCourseId}/${safeSession}/cutoffTime.json`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(time)
   });
-  render();
 }
 
-function loadCutoff() {
-  const safe = sanitizeKey(currentSession);
-  document.getElementById('cutoffTime').value = localStorage.getItem(`cutoff_${safe}`) || "10:45";
-}
+function renderStudentRosterManager() {
+  const container = document.getElementById('rosterListContainer');
+  if (!container) return;
+  const rosterIds = Object.keys(activeRoster);
+  container.innerHTML = '';
 
-// 5. บันทึกและรีเซ็ตการตั้งค่าโฟลเดอร์ Google Drive & กำหนดส่ง
-function saveAssignmentConfig() {
-  if (currentSession === 'SUMMARY') return alert("กรุณาเลือกสัปดาห์ที่ต้องการตั้งค่า");
-
-  const folder = document.getElementById('folderUrlInput').value.trim();
-  const deadline = document.getElementById('deadlineInput').value;
-  const safe = sanitizeKey(currentSession);
-
-  fetch(`${CONFIG.FIREBASE_DB_URL}session_settings/${safe}/assignmentConfig.json`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ folderUrl: folder, deadline: deadline })
-  }).then(() => {
-    alert(`✓ บันทึกการตั้งค่าส่งงานของ "${currentSession}" เรียบร้อยแล้ว`);
-  }).catch(err => {
-    alert("เกิดข้อผิดพลาดในการบันทึก: " + err.message);
-  });
-}
-
-function resetAssignmentConfig() {
-  if (currentSession === 'SUMMARY') return;
-  if (!confirm(`ต้องการล้างลิงก์โฟลเดอร์และเวลาปิดรับของ "${currentSession}" ใช่หรือไม่?`)) return;
-
-  const safe = sanitizeKey(currentSession);
-
-  fetch(`${CONFIG.FIREBASE_DB_URL}session_settings/${safe}/assignmentConfig.json`, {
-    method: "DELETE"
-  }).then(() => {
-    document.getElementById('folderUrlInput').value = "";
-    document.getElementById('deadlineInput').value = "";
-    alert(`✓ รีเซ็ตการตั้งค่าส่งงานของ "${currentSession}" เรียบร้อยแล้ว`);
-  }).catch(err => {
-    alert("เกิดข้อผิดพลาดในการรีเซ็ต: " + err.message);
-  });
-}
-
-function loadAssignmentConfig() {
-  const safe = sanitizeKey(currentSession);
-  fetch(`${CONFIG.FIREBASE_DB_URL}session_settings/${safe}/assignmentConfig.json`)
-    .then(r => r.json())
-    .then(data => {
-      document.getElementById('folderUrlInput').value = (data && data.folderUrl) || "";
-      document.getElementById('deadlineInput').value = (data && data.deadline) || "";
-    });
-}
-
-// เปลี่ยนสัปดาห์เพื่อดูข้อมูลย้อนหลัง
-function changeAdminSession() {
-  currentSession = document.getElementById('sessionSelect').value;
-  
-  const btnLive = document.getElementById('btnSetLiveSession');
-  if (btnLive) {
-    btnLive.style.display = (currentSession === 'SUMMARY') ? 'none' : 'inline-block';
-  }
-
-  loadCutoff();
-  loadAssignmentConfig();
-  render();
-}
-
-// สั่งตั้งสัปดาห์ที่เลือกให้เป็นคาบสอนสดสำหรับเด็กทั้งหมด
-function setAsLiveClassSession() {
-  if (currentSession === 'SUMMARY') return;
-  if (!confirm(`ต้องการตั้ง "${currentSession}" ให้เป็นสัปดาห์สอนสดสำหรับห้องเรียนและนักศึกษาทั้งหมดใช่หรือไม่?`)) return;
-
-  fetch(`${CONFIG.FIREBASE_DB_URL}current_session.json`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(currentSession)
-  }).then(() => {
-    alert(`✓ ตั้งค่า "${currentSession}" เป็นคาบสดของระบบเรียบร้อยแล้ว`);
-  });
-}
-
-// 6. ดึงข้อมูลบันทึกแบบ Realtime จาก Firebase
-function fetchData() {
-  fetch(`${CONFIG.FIREBASE_DB_URL}attendance.json`)
-    .then(r => r.json())
-    .then(d => {
-      realtimeData = d || {};
-      render();
-    });
-}
-
-// 7. แถบฟิลเตอร์คัดกรองด่วน
-function setAdminFilter(filterType) {
-  currentFilter = filterType;
-  ['filterAll', 'filterNoHw', 'filterAbsent', 'filterLeave'].forEach(btnId => {
-    const el = document.getElementById(btnId);
-    if (el) { el.style.background = 'white'; el.style.color = 'var(--dark)'; }
-  });
-  const activeMap = { 'ALL': 'filterAll', 'NO_HW': 'filterNoHw', 'ABSENT': 'filterAbsent', 'LEAVE': 'filterLeave' };
-  const curBtn = document.getElementById(activeMap[filterType]);
-  if (curBtn) { curBtn.style.background = '#1E1B4B'; curBtn.style.color = 'white'; }
-
-  render();
-}
-
-// 8. ระบบ Modal ปรับสถานะการเข้าเรียนรายบุคคล & บันทึกเหตุผลการลา
-function openStatusModal(studentId) {
-  currentEditStudentId = studentId;
-  const safe = sanitizeKey(currentSession);
-  const rec = (realtimeData[safe] && realtimeData[safe][studentId]) || null;
-  const cutoff = document.getElementById('cutoffTime').value;
-
-  document.getElementById('modalTargetStudent').innerText = `${studentId} - ${STUDENT_ROSTER[studentId]}`;
-
-  const select = document.getElementById('statusSelect');
-  const reasonInput = document.getElementById('leaveReasonInput');
-
-  if (!rec) {
-    select.value = "ABSENT";
-    reasonInput.value = "";
-  } else if (rec.status === 'LEAVE') {
-    select.value = "LEAVE";
-    reasonInput.value = rec.leaveReason || "";
-  } else if (rec.timestamp && rec.timestamp <= cutoff) {
-    select.value = "PRESENT";
-    reasonInput.value = "";
-  } else if (rec.timestamp && rec.timestamp > cutoff) {
-    select.value = "LATE";
-    reasonInput.value = "";
-  } else {
-    select.value = "PRESENT";
-    reasonInput.value = "";
-  }
-
-  handleStatusSelectChange();
-  document.getElementById('statusModal').style.display = 'flex';
-}
-
-function closeStatusModal() {
-  document.getElementById('statusModal').style.display = 'none';
-  currentEditStudentId = null;
-}
-
-function handleStatusSelectChange() {
-  const select = document.getElementById('statusSelect');
-  const reasonBox = document.getElementById('leaveReasonBox');
-  if (select.value === 'LEAVE') {
-    reasonBox.style.display = 'block';
-    document.getElementById('leaveReasonInput').focus();
-  } else {
-    reasonBox.style.display = 'none';
-  }
-}
-
-function saveStudentStatus() {
-  if (!currentEditStudentId) return;
-
-  const safe = sanitizeKey(currentSession);
-  const selectedStatus = document.getElementById('statusSelect').value;
-  const reason = document.getElementById('leaveReasonInput').value.trim();
-  const existingRec = (realtimeData[safe] && realtimeData[safe][currentEditStudentId]) || {};
-  const cutoff = document.getElementById('cutoffTime').value;
-
-  if (selectedStatus === 'ABSENT') {
-    if (existingRec.fileUrl) {
-      fetch(`${CONFIG.FIREBASE_DB_URL}attendance/${safe}/${currentEditStudentId}.json`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ timestamp: null, status: "ABSENT", score: 0 })
-      }).then(() => { closeStatusModal(); fetchData(); });
-    } else {
-      fetch(`${CONFIG.FIREBASE_DB_URL}attendance/${safe}/${currentEditStudentId}.json`, {
-        method: "DELETE"
-      }).then(() => { closeStatusModal(); fetchData(); });
-    }
-  } else if (selectedStatus === 'LEAVE') {
-    const payload = {
-      ...existingRec,
-      id: currentEditStudentId,
-      name: STUDENT_ROSTER[currentEditStudentId],
-      status: "LEAVE",
-      leaveReason: reason || "ไม่ได้ระบุเหตุผล",
-      timestamp: "ลา",
-      score: existingRec.score || 0
-    };
-
-    fetch(`${CONFIG.FIREBASE_DB_URL}attendance/${safe}/${currentEditStudentId}.json`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    }).then(() => { closeStatusModal(); fetchData(); });
-
-  } else if (selectedStatus === 'PRESENT') {
-    const payload = {
-      ...existingRec,
-      id: currentEditStudentId,
-      name: STUDENT_ROSTER[currentEditStudentId],
-      status: "PRESENT",
-      leaveReason: null,
-      timestamp: cutoff ? cutoff : "10:30",
-      score: existingRec.score || 100
-    };
-
-    fetch(`${CONFIG.FIREBASE_DB_URL}attendance/${safe}/${currentEditStudentId}.json`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    }).then(() => { closeStatusModal(); fetchData(); });
-
-  } else if (selectedStatus === 'LATE') {
-    const payload = {
-      ...existingRec,
-      id: currentEditStudentId,
-      name: STUDENT_ROSTER[currentEditStudentId],
-      status: "LATE",
-      leaveReason: null,
-      timestamp: "11:15",
-      score: existingRec.score || 50
-    };
-
-    fetch(`${CONFIG.FIREBASE_DB_URL}attendance/${safe}/${currentEditStudentId}.json`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    }).then(() => { closeStatusModal(); fetchData(); });
-  }
-}
-
-// 9. แสดงผลตารางแดชบอร์ด
-function render() {
-  const thead = document.getElementById('adminThead');
-  const tbody = document.getElementById('adminTbody');
-  const cutoff = document.getElementById('cutoffTime').value;
-
-  if (currentSession === 'SUMMARY') {
-    document.getElementById('top5Container').style.display = 'none';
-    const sessions = Object.keys(realtimeData);
-    const total = sessions.length || 1;
-    thead.innerHTML = `<tr><th>รหัส</th><th>ชื่อ - นามสกุล</th><th>เข้าเรียน</th><th>% เวลาเรียน</th><th>สิทธิ์สอบ</th></tr>`;
-    tbody.innerHTML = '';
-    let pass = 0, warn = 0, fail = 0;
-
-    Object.keys(STUDENT_ROSTER).forEach(id => {
-      let count = 0;
-      sessions.forEach(s => { 
-        if (realtimeData[s] && realtimeData[s][id]) {
-          if (realtimeData[s][id].status !== 'LEAVE') count++;
-        } 
-      });
-      const pct = Math.round((count / total) * 100);
-      let badge = '<span class="tag tag-present">มีสิทธิ์สอบ</span>';
-      if (pct < 80 && pct >= 50) { badge = '<span class="tag tag-late">เสี่ยง มส.</span>'; warn++; }
-      else if (pct < 50) { badge = '<span class="tag tag-absent">หมดสิทธิ์</span>'; fail++; }
-      else pass++;
-
-      tbody.innerHTML += `<tr><td><strong>${id}</strong></td><td>${STUDENT_ROSTER[id]}</td><td>${count}/${total}</td><td>${pct}%</td><td>${badge}</td></tr>`;
-    });
-    document.getElementById('kpiVal1').innerText = pass;
-    document.getElementById('kpiVal2').innerText = warn;
-    document.getElementById('kpiVal3').innerText = fail;
-  } else {
-    document.getElementById('top5Container').style.display = 'grid';
-    const safe = sanitizeKey(currentSession);
-    const records = realtimeData[safe] || {};
-
-    thead.innerHTML = `
-      <tr>
-        <th>อันดับ</th>
-        <th>รหัส</th>
-        <th>ชื่อ - นามสกุล</th>
-        <th>สถานะเช็คชื่อ</th>
-        <th>เวลาเข้าห้อง</th>
-        <th>คะแนนควิซ</th>
-        <th style="text-align:center;">สถานะการบ้าน</th>
-        <th style="text-align:center;">ไฟล์ชิ้นงาน</th>
-        <th>IP Address</th>
-      </tr>`;
-    tbody.innerHTML = '';
-    let present = 0, late = 0, hwCount = 0;
-
-    const ipMap = {};
-    Object.values(records).forEach(r => { if (r && r.ip) ipMap[r.ip] = (ipMap[r.ip] || 0) + 1; });
-
-    Object.keys(STUDENT_ROSTER).forEach((id, i) => {
-      const rec = records[id];
-      const isLeave = rec && rec.status === 'LEAVE';
-      const isPresent = rec && rec.timestamp && rec.timestamp <= cutoff && !isLeave;
-      const isLate = rec && rec.timestamp && rec.timestamp > cutoff && !isLeave;
-      const isAbsent = !rec || (!isPresent && !isLate && !isLeave);
-      const hasHw = rec && rec.fileUrl;
-
-      if (isPresent) present++;
-      if (isLate) late++;
-      if (hasHw) hwCount++;
-
-      if (currentFilter === 'NO_HW' && hasHw) return;
-      if (currentFilter === 'ABSENT' && !isAbsent) return;
-      if (currentFilter === 'LEAVE' && !isLeave) return;
-
-      let statusText = 'ขาดเรียน';
-      let statusClass = 'tag-absent';
-
-      if (isLeave) {
-        const reasonText = rec && rec.leaveReason ? `<br><small style="color:#B45309; font-weight:600;">(${rec.leaveReason})</small>` : '';
-        statusText = `🏥 ลาเรียน ${reasonText}`;
-        statusClass = 'tag-late';
-      } else if (isPresent) {
-        statusText = 'ตรงเวลา';
-        statusClass = 'tag-present';
-      } else if (isLate) {
-        statusText = 'มาสาย';
-        statusClass = 'tag-late';
-      }
-
-      const statusBadge = `
-        <span class="tag ${statusClass}" style="cursor:pointer; display:inline-block; line-height:1.3;" onclick="openStatusModal('${id}')" title="คลิกเพื่อปรับสถานะ">
-          ${statusText} ▾
-        </span>
-      `;
-
-      let hwBadge = `<span class="tag tag-absent">ยังไม่ส่ง</span>`;
-      let fileAction = `<span style="color:#94A3B8;">-</span>`;
-
-      if (hasHw) {
-        hwBadge = `<span class="tag tag-present">✓ ส่งแล้ว (${rec.submittedTime || '-'})</span>`;
-        fileAction = `
-          <a href="${rec.fileUrl}" target="_blank" class="btn-pill" style="display:inline-flex; align-items:center; gap:4px; padding:0.25rem 0.75rem; font-size:0.8rem; background:#EEF2FF; color:#4338CA; border:1px solid #C7D2FE; text-decoration:none;">
-            📄 เปิดตรวจ (${rec.fileSize || 'ไฟล์'})
-          </a>
-        `;
-      }
-
-      let ipBadge = rec && rec.ip ? (ipMap[rec.ip] > 1 ? `<span style="color:var(--danger); font-weight:700;">⚠️ ${rec.ip} (ซ้ำ)</span>` : `<small>${rec.ip}</small>`) : '-';
-
-      tbody.innerHTML += `
-        <tr>
-          <td>#${i+1}</td>
-          <td><strong>${id}</strong></td>
-          <td>${STUDENT_ROSTER[id]}</td>
-          <td>${statusBadge}</td>
-          <td>${rec ? rec.timestamp : '-'}</td>
-          <td style="color:var(--primary); font-weight:700;">${rec && !isLeave ? rec.score + ' แต้ม' : '-'}</td>
-          <td style="text-align:center;">${hwBadge}</td>
-          <td style="text-align:center;">${fileAction}</td>
-          <td>${ipBadge}</td>
-        </tr>`;
-    });
-
-    document.getElementById('kpiVal1').innerText = present;
-    document.getElementById('kpiVal2').innerText = late;
-    document.getElementById('kpiVal3').innerText = `${hwCount}/65`;
-
-    renderTop5(records);
-  }
-}
-
-// 10. แสดงผล Top 1-5
-function renderTop5(records) {
-  const container = document.getElementById('top5Container');
-  let list = Object.keys(STUDENT_ROSTER).map(id => ({
-    id,
-    name: STUDENT_ROSTER[id],
-    score: records[id] && records[id].status !== 'LEAVE' ? (records[id].score || 0) : -1
-  })).sort((a, b) => b.score - a.score);
-
-  const top5 = list.slice(0, 5);
-  const medalIcons = ['🥇', '🥈', '🥉', '#4', '#5'];
-
-  container.innerHTML = top5.map((st, i) => {
-    const isRanked = st.score > -1;
-    return `
-      <div class="top5-card rank-${i+1}">
-        <div class="top5-badge">${medalIcons[i]}</div>
-        <div class="top5-name">${st.name}</div>
-        <div class="top5-id">${st.id}</div>
-        <div class="top5-score">${isRanked ? st.score + ' แต้ม' : '<span style="color:#94A3B8; font-weight:400; font-size:0.85rem;">ยังไม่มีคะแนน</span>'}</div>
+  rosterIds.forEach(id => {
+    container.innerHTML += `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0.6rem; border-bottom:1px solid #F1F5F9; font-size:0.85rem;">
+        <div><strong>${id}</strong> - ${activeRoster[id]}</div>
+        <button onclick="removeStudentFromRoster('${id}')" style="background:#FEE2E2; color:#DC2626; border:none; padding:0.2rem 0.5rem; border-radius:6px; cursor:pointer;">ลบ</button>
       </div>
     `;
-  }).join('');
-}
-
-// 11. Modal ตารางคะแนนเต็ม
-function openScoreModal() {
-  const safe = sanitizeKey(currentSession);
-  const records = realtimeData[safe] || {};
-  document.getElementById('modalSessionTitle').innerText = `ข้อมูลคะแนนควิซ: ${currentSession}`;
-
-  let list = Object.keys(STUDENT_ROSTER).map(id => ({
-    id,
-    name: STUDENT_ROSTER[id],
-    rec: records[id],
-    score: records[id] && records[id].status !== 'LEAVE' ? (records[id].score || 0) : -1
-  })).sort((a, b) => b.score - a.score);
-
-  const tbody = document.getElementById('fullScoreboardBody');
-  tbody.innerHTML = '';
-
-  const medals = ['🥇', '🥈', '🥉'];
-  list.forEach((st, i) => {
-    const rankDisplay = i < 3 && st.score > -1 ? medals[i] : `#${i + 1}`;
-    tbody.innerHTML += `
-      <tr>
-        <td style="font-weight:700;">${rankDisplay}</td>
-        <td><strong>${st.id}</strong></td>
-        <td>${st.name}</td>
-        <td style="text-align:right; font-weight:800; color:var(--primary);">
-          ${st.score > -1 ? st.score + ' แต้ม' : '<span style="color:#94A3B8; font-weight:400;">-</span>'}
-        </td>
-      </tr>
-    `;
   });
-
-  document.getElementById('scoreModal').style.display = 'flex';
 }
 
-function closeScoreModal() {
-  document.getElementById('scoreModal').style.display = 'none';
+function addSingleStudent() {
+  const id = document.getElementById('newStudentId').value.trim();
+  const name = document.getElementById('newStudentName').value.trim();
+  if (!id || !name) return alert("กรุณากรอกรหัสและชื่อ");
+
+  activeRoster[id] = name;
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+  fetch(`${baseUrl}courses/${activeCourseId}/roster.json`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(activeRoster)
+  }).then(() => {
+    document.getElementById('newStudentId').value = '';
+    document.getElementById('newStudentName').value = '';
+    renderStudentRosterManager();
+    renderDashboardUI();
+  });
 }
 
-// 12. ส่งออกรายงานเป็น CSV
-function exportCSV() {
-  const safe = sanitizeKey(currentSession);
-  const records = realtimeData[safe] || {};
-  let csv = "\uFEFFรหัสนักศึกษา,ชื่อ-นามสกุล,สถานะเช็คชื่อ,เหตุผลการลา,เวลา,คะแนนควิซ,สถานะการบ้าน,ลิงก์ไฟล์GoogleDrive\n";
+function removeStudentFromRoster(id) {
+  if (!confirm(`ลบ ${id} ใช่หรือไม่?`)) return;
+  delete activeRoster[id];
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+  fetch(`${baseUrl}courses/${activeCourseId}/roster.json`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(activeRoster)
+  }).then(() => {
+    renderStudentRosterManager();
+    renderDashboardUI();
+  });
+}
 
-  Object.keys(STUDENT_ROSTER).forEach(id => {
-    const rec = records[id];
-    let status = 'ขาดเรียน';
-    let leaveReason = '-';
-    if (rec) {
-      if (rec.status === 'LEAVE') {
-        status = 'ลาเรียน';
-        leaveReason = rec.leaveReason || 'ไม่ได้ระบุเหตุผล';
-      } else if (rec.timestamp <= document.getElementById('cutoffTime').value) {
-        status = 'ตรงเวลา';
-      } else {
-        status = 'มาสาย';
+function saveCourseMetadata() {
+  const secVal = document.getElementById('courseSectionInput').value.trim();
+  const roomVal = document.getElementById('courseRoomInput').value.trim();
+  const dayVal = document.getElementById('courseDaySelect').value;
+  const timeVal = document.getElementById('courseTimeInput').value.trim();
+
+  const combinedDayTime = `${dayVal} ${timeVal}`.trim();
+
+  const patchData = {
+    section: secVal ? `Sec ${secVal}` : '',
+    room: roomVal ? `ห้อง ${roomVal}` : '',
+    dayTime: combinedDayTime,
+    day: dayVal,
+    time: timeVal
+  };
+
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+  fetch(`${baseUrl}courses/${activeCourseId}.json`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patchData)
+  }).then(() => {
+    alert("✓ บันทึกข้อมูลห้องเรียนเรียบร้อยแล้ว");
+  });
+}
+
+function loadAllAttendanceForOverview() {
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+  fetch(`${baseUrl}attendance/${activeCourseId}.json`)
+    .then(r => r.json())
+    .then(data => {
+      allAttendance = data || {};
+      renderTermOverviewTable();
+    })
+    .catch(() => { allAttendance = {}; });
+}
+
+function renderTermOverviewTable() {
+  const container = document.getElementById('termOverviewTableContainer');
+  if (!container || !CONFIG.SESSIONS) return;
+
+  const rosterIds = Object.keys(activeRoster);
+  let html = `<table class="main-table" style="font-size:0.82rem;"><thead><tr><th>รหัสนักศึกษา</th><th>ชื่อ - นามสกุล</th>`;
+  CONFIG.SESSIONS.forEach((s, idx) => { html += `<th style="text-align:center;">W${idx+1}</th>`; });
+  html += `<th style="text-align:center;">รวมคะแนน</th></tr></thead><tbody>`;
+
+  rosterIds.forEach(id => {
+    let sum = 0;
+    html += `<tr><td><strong>${id}</strong></td><td>${activeRoster[id]}</td>`;
+    CONFIG.SESSIONS.forEach(sess => {
+      const safe = (typeof sanitizeKey === 'function') ? sanitizeKey(sess) : sess;
+      const rec = (allAttendance[safe] && allAttendance[safe][id]) || (allAttendance[sess] && allAttendance[sess][id]);
+      let icon = '-';
+      if (rec) {
+        if (rec.status === 'PRESENT') icon = '✅';
+        else if (rec.status === 'LATE') icon = '🟡';
+        else if (rec.status === 'LEAVE') icon = '🔵';
+        if (rec.score) sum += Number(rec.score);
       }
-    }
-    const hwStatus = rec && rec.fileUrl ? 'ส่งแล้ว' : 'ยังไม่ส่ง';
-    const fileUrl = rec && rec.fileUrl ? rec.fileUrl : '-';
-    csv += `"${id}","${STUDENT_ROSTER[id]}","${status}","${leaveReason}","${rec ? rec.timestamp : '-'}","${rec ? rec.score : 0}","${hwStatus}","${fileUrl}"\n`;
+      html += `<td style="text-align:center;">${icon}</td>`;
+    });
+    html += `<td style="text-align:center; font-weight:800; color:#4338CA;">${sum}</td></tr>`;
+  });
+  html += `</tbody></table>`;
+  container.innerHTML = html;
+}
+
+function exportAttendanceToCSV() {
+  const rosterIds = Object.keys(activeRoster);
+  if (rosterIds.length === 0) return alert("ไม่มีข้อมูลสำหรับ Export");
+
+  let csv = "\uFEFFอันดับ,รหัสนักศึกษา,ชื่อ - นามสกุล,สถานะเช็คชื่อ,เวลาเข้าเรียน,คะแนน,สถานะการบ้าน,ลิงก์ไฟล์,IP Address\n";
+  rosterIds.forEach((id, idx) => {
+    const rec = sessionAttendance[id] || {};
+    let st = "ขาดเรียน";
+    if (rec.status === "PRESENT") st = "เข้าห้องแล้ว";
+    else if (rec.status === "LATE") st = "มาสาย";
+    else if (rec.status === "LEAVE") st = "ลาเรียน";
+
+    const ip = rec.ip || rec.ipAddress || '-';
+
+    csv += [
+      idx + 1,
+      `"${id}"`,
+      `"${activeRoster[id]}"`,
+      `"${st}"`,
+      `"${rec.timestamp || '-'}"`,
+      rec.score !== undefined ? rec.score : 0,
+      rec.fileUrl ? "ส่งแล้ว" : "ยังไม่ส่ง",
+      `"${rec.fileUrl || '-'}"`,
+      `"${ip}"`
+    ].join(",") + "\n";
   });
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `attendance_homework_${safe}.csv`;
+  a.href = url;
+  a.download = `Attendance_${activeCourseId}_${currentSession}.csv`;
   a.click();
+}
+
+function logoutAdmin() {
+  // เคลียร์สิทธิ์การเข้าใช้งาน Admin
+  sessionStorage.removeItem("adminAuthenticated");
+  
+  // สั่งให้กลับไปหน้าจอผู้สอน (teacher.html)
+  window.location.href = "teacher.html";
 }

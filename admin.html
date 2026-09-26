@@ -3,221 +3,260 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard - 969-042G4</title>
+  <title>Admin Control Center - ระบบจัดการห้องเรียน</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/admin.css">
-  <style>
-    .top5-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 0.9rem;
-      margin-bottom: 1.5rem;
-    }
-    .top5-card {
-      background: #FFFFFF;
-      border: 1.5px solid #E2E8F0;
-      border-radius: 18px;
-      padding: 1rem;
-      text-align: center;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
-      position: relative;
-      overflow: hidden;
-    }
-    .top5-card.rank-1 { border-color: #F59E0B; background: linear-gradient(180deg, #FFFBEB 0%, #FFFFFF 100%); }
-    .top5-card.rank-2 { border-color: #94A3B8; background: linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%); }
-    .top5-card.rank-3 { border-color: #D97706; background: linear-gradient(180deg, #FFF7ED 0%, #FFFFFF 100%); }
-    
-    .top5-badge { font-size: 1.6rem; margin-bottom: 0.2rem; }
-    .top5-name { font-weight: 700; color: #1E1B4B; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .top5-id { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.4rem; }
-    .top5-score { font-weight: 800; color: var(--primary); font-size: 1.05rem; }
-
-    .modal-overlay {
-      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-      z-index: 10000; justify-content: center; align-items: center; padding: 1.2rem;
-    }
-    .modal-content {
-      background: white; border-radius: 24px; max-width: 900px; width: 100%;
-      max-height: 85vh; display: flex; flex-direction: column; padding: 1.8rem;
-      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.25);
-    }
-    .modal-header {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 1rem; padding-bottom: 0.8rem; border-bottom: 1px solid var(--border-soft);
-    }
-  </style>
 </head>
-<body>
+<body id="adminBody" style="display: none;">
 
-  <!-- 1. ประตูรหัสผ่านอาจารย์ -->
-  <div id="authGate" style="display:flex; justify-content:center; align-items:center; min-height:80vh;">
-    <div style="background:white; border-radius:28px; padding:2.5rem; max-width:420px; width:100%; border:1px solid var(--border-soft); box-shadow:0 25px 60px -15px rgba(67, 56, 202, 0.15); text-align:center;">
-      <div style="font-size:2.8rem; margin-bottom:0.5rem;">🔒</div>
-      <h2 style="font-size:1.4rem; font-weight:800; color:#1E1B4B; margin-bottom:0.4rem;">ระบบรักษาความปลอดภัย</h2>
-      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.4rem;">กรุณากรอกรหัสผ่านอาจารย์ผู้สอนเพื่อเข้าสู่แดชบอร์ด</p>
+  <!-- Modal ล็อกอินอาจารย์ -->
+  <div id="adminAuthOverlay">
+    <div class="auth-card">
+      <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🔒</div>
+      <h2 style="font-size: 1.4rem; font-weight: 800; color: #1E1B4B; margin: 0 0 0.3rem 0;">ระบบรักษาความปลอดภัย</h2>
+      <p style="font-size: 0.88rem; color: #64748B; margin: 0 0 1.2rem 0;">กรุณากรอกรหัสผ่านอาจารย์ผู้สอนเพื่อเข้าสู่แดชบอร์ด</p>
       
-      <input type="password" id="adminPasswordInput" placeholder="กรอกรหัสผ่าน..." 
-        style="width:100%; padding:0.8rem 1rem; border-radius:14px; border:1.5px solid var(--border-soft); font-size:1rem; outline:none; text-align:center; margin-bottom:0.8rem;"
-        onkeyup="if(event.key === 'Enter') verifyAdminPassword()">
-
-      <button class="btn-pill" style="width:100%; background:var(--primary); color:white; border:none; padding:0.85rem; border-radius:14px; font-size:1rem; cursor:pointer;" onclick="verifyAdminPassword()">
-        ปลดล็อกเข้าสู่ระบบ 🔓
-      </button>
-      <p id="authErrorMsg" style="display:none; color:var(--danger); font-weight:700; font-size:0.85rem; margin-top:0.8rem;">
-        ❌ รหัสผ่านไม่ถูกต้อง โปรดลองอีกครั้ง
-      </p>
+      <input type="password" id="adminPasswordInput" placeholder="••••••••" style="width: 100%; padding: 0.85rem; border-radius: 16px; border: 1.5px solid #E2E8F0; font-size: 1.1rem; text-align: center; outline: none; margin-bottom: 1.2rem; font-family: var(--font-main);" onkeyup="if(event.key==='Enter') unlockAdminDashboard()">
+      <button type="button" onclick="unlockAdminDashboard()" style="width: 100%; padding: 0.9rem; border-radius: 9999px; border: none; background: #4338CA; color: white; font-size: 1.05rem; font-weight: 700; cursor: pointer; font-family: var(--font-main);">ปลดล็อกเข้าสู่ระบบ 🔒</button>
     </div>
   </div>
 
-  <!-- 2. แผงแดชบอร์ดหลัก -->
-  <div id="adminContent" style="display:none;" class="admin-card">
-    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
-      <div>
-        <h2 style="font-size:1.6rem; font-weight:800; color:#1E1B4B;">Admin Control Center</h2>
-        <p style="font-size:0.85rem; color:var(--text-muted);">969-042G4 การใช้ปัญญาประดิษฐ์ในชีวิตประจำวัน</p>
-      </div>
-      <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-        <select id="sessionSelect" class="btn-pill" onchange="changeAdminSession()"></select>
-        <span>ตัดสาย: <input type="time" id="cutoffTime" value="10:45" class="btn-pill" onchange="saveCutoff()"></span>
-        <button class="btn-pill" style="background:#4338CA; color:white; border:none;" onclick="openScoreModal()">📊 ดูตารางคะแนนเต็ม</button>
-        <button class="btn-pill" onclick="exportCSV()">📥 โหลด CSV</button>
-        <button class="btn-pill" style="background:#FEE2E2; color:#DC2626; border-color:#FECACA;" onclick="logoutAdmin()">🚪 ออกจากระบบ</button>
-      </div>
-    </div>
-    
-    <!-- แถบผูกโฟลเดอร์ Google Drive และตั้งเวลาปิดรับ (มีปุ่มบันทึกและรีเซ็ต) -->
-    <div style="margin: 1.2rem 0; background:#F8FAFC; padding:1rem 1.4rem; border-radius:18px; border:1px solid #E2E8F0; display:flex; gap:1rem; flex-wrap:wrap; align-items:center;">
-      <div style="display:flex; align-items:center; gap:0.5rem;">
-        <label style="font-size:0.88rem; font-weight:700; color:#1E1B4B;">📁 ลิงก์โฟลเดอร์ Drive:</label>
-        <input type="url" id="folderUrlInput" placeholder="วางลิงก์โฟลเดอร์ Google Drive" class="btn-pill" style="width:260px;">
-      </div>
-      <div style="display:flex; align-items:center; gap:0.5rem;">
-        <label style="font-size:0.88rem; font-weight:700; color:#1E1B4B;">⏰ ปิดรับ:</label>
-        <input type="datetime-local" id="deadlineInput" class="btn-pill">
-      </div>
-      
-      <!-- ปุ่มบันทึก และ ปุ่มรีเซ็ตลิงก์ -->
-      <div style="display:flex; gap:0.4rem; align-items:center;">
-        <button class="btn-pill" style="background:#059669; color:white; border:none; font-weight:700;" onclick="saveAssignmentConfig()">
-          💾 บันทึก
-        </button>
-        <button class="btn-pill" style="background:#F1F5F9; color:#64748B; border:1px solid #CBD5E1; font-weight:600;" onclick="resetAssignmentConfig()" title="ล้างลิงก์และเวลาของสัปดาห์นี้">
-          🔄 รีเซ็ต
-        </button>
+  <div class="admin-wrapper">
+    <!-- Header -->
+    <header class="top-header">
+      <div class="header-title-box">
+        <h1>Admin Control Center</h1>
+        <p id="adminCourseSubtitle">กำลังโหลดข้อมูลวิชา...</p>
       </div>
 
-      <span style="font-size:0.78rem; color:var(--text-muted); flex:1; min-width:200px;">* เมื่อหมดเวลา หน้าเว็บจะล็อกไม่ให้นักศึกษาส่งไฟล์ทันที</span>
-    </div>
+      <div class="header-tools">
+        <!-- เลือกสัปดาห์ -->
+        <select id="sessionSelect" class="pill-select" onchange="onAdminSessionChange()"></select>
 
-    <!-- KPI Summary Grid -->
-    <div class="kpi-grid">
-      <div class="kpi-card card-blue"><div>นักศึกษาทั้งหมด</div><div class="kpi-num">65 คน</div></div>
-      <div class="kpi-card card-purple"><div>เข้าเรียนตรงเวลา</div><div class="kpi-num" id="kpiVal1">0</div></div>
-      <div class="kpi-card card-orange"><div>มาสาย</div><div class="kpi-num" id="kpiVal2">0</div></div>
-      <div class="kpi-card card-slate"><div>ส่งการบ้านแล้ว</div><div class="kpi-num" id="kpiVal3" style="color:#34D399;">0</div></div>
-    </div>
+        <!-- กำหนดเวลาตัดสาย -->
+        <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; font-weight: 600; color: #475569;">
+          <span>⏰ ตัดสาย:</span>
+          <input type="time" id="cutoffTimeInput" value="10:45" style="border: 1.5px solid #CBD5E1; border-radius: 9999px; padding: 0.3rem 0.6rem; font-family: var(--font-main);" onchange="saveCutoffTime()">
+        </div>
 
-    <!-- แผงแสดง Top 1-5 ประจำคาบ -->
-    <div style="display:flex; justify-content:space-between; align-items:center; margin: 1.5rem 0 0.8rem;">
-      <h3 style="font-size:1.15rem; font-weight:800; color:#1E1B4B;">🏆 อันดับคะแนนสูงสุดประจำคาบ (Top 1 - 5)</h3>
-      <button class="btn-pill" style="font-size:0.8rem; color:var(--primary);" onclick="openScoreModal()">ดูตารางคะแนนทั้งหมด →</button>
-    </div>
-    <div class="top5-grid" id="top5Container"></div>
-
-    <!-- แถบฟิลเตอร์คัดกรองด่วน -->
-    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.6rem; margin:1.2rem 0 0.8rem;">
-      <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
-        <button class="btn-pill" id="filterAll" style="background:#1E1B4B; color:white;" onclick="setAdminFilter('ALL')">ทั้งหมด (65)</button>
-        <button class="btn-pill" id="filterNoHw" onclick="setAdminFilter('NO_HW')">⚠️ ยังไม่ส่งการบ้าน</button>
-        <button class="btn-pill" id="filterAbsent" onclick="setAdminFilter('ABSENT')">❌ ขาดเรียน</button>
-        <button class="btn-pill" id="filterLeave" onclick="setAdminFilter('LEAVE')">🏥 ลาเรียน</button>
+        <button class="pill-btn btn-blue" onclick="openOverviewModal()">📊 ดูตารางคะแนนเต็ม</button>
+        <button class="pill-btn btn-light-blue" onclick="exportAttendanceToCSV()">📥 โหลด CSV</button>
+        <button class="pill-btn" style="background:#F1F5F9; color:#1E293B;" onclick="openSettingsModal()">⚙️ ตั้งค่าห้องเรียน/วิชา</button>
+        <button class="pill-btn btn-danger" onclick="logoutAdmin()">🚪 ออกจากระบบ</button>
       </div>
-      <span style="font-size:0.8rem; color:var(--text-muted);">* คลิกที่ป้ายสถานะของนักศึกษาเพื่อเปลี่ยนเป็น <strong>"ลาเรียน"</strong> ได้ทันที</span>
+    </header>
+
+    <!-- แถบตั้งค่าลิงก์ Drive แนวนอน 1 บรรทัด -->
+    <div class="drive-setup-bar">
+      <span style="font-weight: 700; color: #1E1B4B; white-space: nowrap;">📁 ลิงก์โฟลเดอร์ Drive:</span>
+      <input type="text" id="hwFolderUrl" placeholder="https://drive.google.com/drive/folders/...">
+
+      <span style="font-weight: 700; color: #1E1B4B; white-space: nowrap;">⏰ ปิดรับ:</span>
+      <input type="datetime-local" id="hwDeadline">
+
+      <button class="btn-save-drive" onclick="saveAssignmentSettings()">💾 บันทึก</button>
+      <button class="btn-reset-drive" onclick="resetAssignmentInputs()">🔄 รีเซ็ต</button>
+      <span style="font-size: 0.76rem; color: #94A3B8;">* เมื่อหมดเวลา หน้าเว็บจะล็อกไม่ให้นักศึกษาส่งไฟล์ทันที</span>
     </div>
 
-    <!-- ตารางหลักประจำห้องเรียน -->
-    <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:20px; padding:1.2rem; overflow-x:auto;">
-      <table>
-        <thead id="adminThead"></thead>
-        <tbody id="adminTbody"></tbody>
+    <!-- การ์ด 4 สถิติแนวนอน -->
+    <div class="stats-row">
+      <div class="stat-card stat-card-1">
+        <div class="stat-card-title">นักศึกษาทั้งหมด</div>
+        <div class="stat-card-val"><span id="statTotalStudents">0</span> <span style="font-size: 1.1rem; font-weight: 600;">คน</span></div>
+      </div>
+      <div class="stat-card stat-card-2">
+        <div class="stat-card-title">เข้าเรียนตรงเวลา</div>
+        <div class="stat-card-val"><span id="statPresent">0</span> <span style="font-size: 1.1rem; font-weight: 600;">คน</span></div>
+      </div>
+      <div class="stat-card stat-card-3">
+        <div class="stat-card-title">มาสาย</div>
+        <div class="stat-card-val"><span id="statLate">0</span> <span style="font-size: 1.1rem; font-weight: 600;">คน</span></div>
+      </div>
+      <div class="stat-card stat-card-4">
+        <div class="stat-card-title">ส่งการบ้านแล้ว</div>
+        <div class="stat-card-val"><span id="statSubmitted">0</span>/<span id="statSubTotal">0</span></div>
+      </div>
+    </div>
+
+    <!-- ส่วน Top 1 - 5 ประจำคาบ -->
+    <div class="top-section-header">
+      <div class="top-title">🏆 อันดับคะแนนสูงสุดประจำคาบ (Top 1 - 5)</div>
+      <a href="javascript:void(0)" onclick="openOverviewModal()" style="font-size: 0.82rem; color: #4338CA; font-weight: 700; text-decoration: none;">ดูตารางคะแนนทั้งหมด →</a>
+    </div>
+    <div class="top-grid" id="topRankGrid"></div>
+
+    <!-- แถบกรองสถานะ และ หมายเหตุ -->
+    <div class="filter-bar">
+      <div class="filter-buttons">
+        <button class="f-btn active" onclick="setTableFilter('ALL', this)">ทั้งหมด (<span id="countAll">0</span>)</button>
+        <button class="f-btn" onclick="setTableFilter('NOT_SUBMITTED', this)">⚠️ ยังไม่ส่งการบ้าน</button>
+        <button class="f-btn" onclick="setTableFilter('ABSENT', this)">❌ ขาดเรียน</button>
+        <button class="f-btn" onclick="setTableFilter('LEAVE', this)">🏥 ลาเรียน</button>
+      </div>
+      <div style="font-size: 0.78rem; color: #64748B;">* คลิกที่ป้ายสถานะของนักศึกษาเพื่อเปลี่ยนเป็น "ลาเรียน" ได้ทันที</div>
+    </div>
+
+    <!-- ตารางรายชื่อนักศึกษา -->
+    <div class="table-card">
+      <table class="main-table">
+        <thead>
+          <tr>
+            <th style="width: 5%;">อันดับ</th>
+            <th style="width: 11%;">รหัส</th>
+            <th style="width: 18%;">ชื่อ - นามสกุล</th>
+            <th style="width: 12%;">สถานะเช็คชื่อ</th>
+            <th style="width: 10%;">เวลาเข้าห้อง</th>
+            <th style="width: 9%;">คะแนนควิซ</th>
+            <th style="width: 11%;">สถานะการบ้าน</th>
+            <th style="width: 12%;">ไฟล์ชิ้นงาน</th>
+            <th style="width: 12%;">IP Address</th>
+          </tr>
+        </thead>
+        <tbody id="adminTableBody"></tbody>
       </table>
     </div>
   </div>
 
-  <!-- MODAL ตารางคะแนนเต็ม (Full Scoreboard) -->
-  <div id="scoreModal" class="modal-overlay">
-    <div class="modal-content">
-      <div class="modal-header">
-        <div>
-          <h2 style="font-size:1.3rem; font-weight:800; color:#1E1B4B;">📊 ตารางคะแนนควิซและประลองความรู้แบบเต็ม</h2>
-          <p style="font-size:0.85rem; color:var(--text-muted);" id="modalSessionTitle">ประจำสัปดาห์</p>
-        </div>
-        <button class="btn-pill" onclick="closeScoreModal()" style="font-size:1rem; padding:0.3rem 0.8rem;">✕</button>
-      </div>
-      <div style="overflow-y:auto; flex:1;">
-        <table>
-          <thead>
-            <tr>
-              <th style="width:15%;">อันดับ</th>
-              <th style="width:25%;">รหัสนักศึกษา</th>
-              <th style="width:40%;">ชื่อ - นามสกุล</th>
-              <th style="width:20%; text-align:right;">คะแนนที่ได้</th>
-            </tr>
-          </thead>
-          <tbody id="fullScoreboardBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <script src="js/config.js"></script>
-  <script src="js/admin.js"></script>
-
-  <!-- MODAL ปรับสถานะการเข้าเรียนรายบุคคล -->
-  <div id="statusModal" class="modal-overlay">
-    <div class="modal-content" style="max-width: 440px; padding: 2rem;">
-      <div class="modal-header">
-        <h3 style="font-size: 1.25rem; font-weight: 800; color: #1E1B4B;">✏️ ปรับสถานะการเข้าเรียน</h3>
-        <button class="btn-pill" onclick="closeStatusModal()" style="font-size: 0.9rem; padding: 0.3rem 0.7rem;">✕</button>
+  <!-- MODAL 1: ปรับสถานะการเข้าเรียน -->
+  <div id="attendanceStatusModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 480px; padding: 2rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem;">
+        <h3 style="margin: 0; font-size: 1.3rem; color: #1E1B4B; font-weight: 800;">✏️ ปรับสถานะการเข้าเรียน</h3>
+        <button onclick="closeStatusModal()" style="background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #64748B;">✕</button>
       </div>
 
-      <div style="margin-bottom: 1.2rem; text-align: left;">
-        <div style="font-size: 0.82rem; color: var(--text-muted);">นักศึกษา:</div>
-        <div id="modalTargetStudent" style="font-size: 1.05rem; font-weight: 700; color: #1E1B4B; margin-top: 0.2rem;">-</div>
+      <div style="margin-bottom: 1.2rem;">
+        <div style="font-size: 0.85rem; font-weight: 500; color: #64748B; margin-bottom: 0.2rem;">นักศึกษา:</div>
+        <div id="modalStudentName" style="font-size: 1.2rem; font-weight: 800; color: #1E1B4B;">-</div>
       </div>
 
-      <div style="margin-bottom: 1.2rem; text-align: left;">
-        <label style="font-size: 0.88rem; font-weight: 700; color: #1E1B4B; display: block; margin-bottom: 0.4rem;">
-          เลือกสถานะการเข้าเรียน:
-        </label>
-        <select id="statusSelect" class="btn-pill" style="width: 100%; padding: 0.7rem 1rem; border-radius: 14px; font-size: 0.95rem;" onchange="handleStatusSelectChange()">
+      <div style="margin-bottom: 1.8rem;">
+        <label style="font-size: 0.9rem; font-weight: 700; color: #1E1B4B; display: block; margin-bottom: 0.4rem;">เลือกสถานะการเข้าเรียน:</label>
+        <select id="modalStatusSelect" class="meta-select" style="height: 48px; font-size: 0.95rem; border-radius: 14px;">
           <option value="PRESENT">✅ เข้าเรียนตรงเวลา (Present)</option>
-          <option value="LATE">⏳ มาสาย (Late)</option>
+          <option value="LATE">🟡 มาสาย (Late)</option>
           <option value="LEAVE">🏥 ลาเรียน (Leave)</option>
           <option value="ABSENT">❌ ขาดเรียน / รีเซ็ตสถานะ (Absent)</option>
         </select>
       </div>
 
-      <!-- ช่องกรอกเหตุผล (จะแสดงเฉพาะตอนเลือก "ลาเรียน") -->
-      <div id="leaveReasonBox" style="display: none; margin-bottom: 1.4rem; text-align: left;">
-        <label style="font-size: 0.88rem; font-weight: 700; color: #B45309; display: block; margin-bottom: 0.4rem;">
-          📌 เหตุผลการลา:
-        </label>
-        <input type="text" id="leaveReasonInput" placeholder="เช่น ลาป่วย (มีใบรับรองแพทย์), ลากิจ" 
-               style="width: 100%; padding: 0.7rem 1rem; border-radius: 14px; border: 1.5px solid #FDE68A; background: #FFFBEB; font-size: 0.9rem; outline: none;">
-      </div>
-
-      <div style="display: flex; gap: 0.6rem; justify-content: flex-end;">
-        <button class="btn-pill" onclick="closeStatusModal()">ยกเลิก</button>
-        <button class="btn-pill" style="background: var(--primary); color: white; border: none; font-weight: 700;" onclick="saveStudentStatus()">
-          บันทึกสถานะ 💾
-        </button>
+      <div style="display: flex; justify-content: flex-end; gap: 0.8rem;">
+        <button type="button" onclick="closeStatusModal()" style="padding: 0.65rem 1.4rem; border-radius: 9999px; border: 1.5px solid #CBD5E1; background: white; font-weight: 700; font-family: var(--font-main); cursor: pointer; color: #475569;">ยกเลิก (Esc)</button>
+        <button type="button" onclick="confirmSaveStatus()" style="padding: 0.65rem 1.6rem; border-radius: 9999px; border: none; background: #4338CA; color: white; font-weight: 700; font-family: var(--font-main); cursor: pointer; box-shadow: 0 4px 15px rgba(67, 56, 202, 0.3);">บันทึกสถานะ (Enter) 💾</button>
       </div>
     </div>
   </div>
+
+  <!-- MODAL 2: ตั้งค่าห้องเรียน / สลับวิชา / จัดการ Roster -->
+  <div id="settingsModal" class="modal-overlay">
+    <div class="modal-box">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.3rem;">
+        <h3 style="margin: 0; font-size: 1.25rem; color: #1E1B4B; font-weight: 800;">⚙️ ตั้งค่าห้องเรียน & รายชื่อนักศึกษา</h3>
+        <button onclick="closeSettingsModal()" style="background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #64748B;">✕</button>
+      </div>
+
+      <!-- สลับวิชา -->
+      <div style="margin-bottom: 1.2rem;">
+        <label style="font-size: 0.85rem; font-weight: 700; color: #1E1B4B; display: block; margin-bottom: 0.4rem;">เลือกสลับวิชาที่สอน:</label>
+        <select id="adminCourseSelect" onchange="onAdminCourseChange()" style="width: 100%; padding: 0.75rem 1rem; border-radius: 14px; border: 1.5px solid #CBD5E1; font-family: var(--font-main); font-weight: 700; font-size: 0.92rem; outline: none;"></select>
+      </div>
+
+      <!-- กล่อง 4 ช่องข้อมูลห้องเรียน -->
+      <div class="course-meta-grid">
+        <div class="meta-field">
+          <label>Sec</label>
+          <input type="text" id="courseSectionInput" placeholder="เช่น 4">
+        </div>
+        <div class="meta-field">
+          <label>ห้องเรียน</label>
+          <input type="text" id="courseRoomInput" placeholder="เช่น 6310">
+        </div>
+        <div class="meta-field">
+          <label>วัน</label>
+          <select id="courseDaySelect" class="meta-select">
+            <option value="จันทร์">จันทร์</option>
+            <option value="อังคาร">อังคาร</option>
+            <option value="พุธ">พุธ</option>
+            <option value="พฤหัสบดี">พฤหัสบดี</option>
+            <option value="ศุกร์">ศุกร์</option>
+            <option value="เสาร์">เสาร์</option>
+            <option value="อาทิตย์">อาทิตย์</option>
+          </select>
+        </div>
+        <div class="meta-field">
+          <label>เวลา</label>
+          <input type="text" id="courseTimeInput" placeholder="เช่น 10.30 - 12.30">
+        </div>
+      </div>
+
+      <button onclick="saveCourseMetadata()" style="width: 100%; padding: 0.75rem; border-radius: 9999px; border: none; background: #4338CA; color: white; font-weight: 700; cursor: pointer; font-family: var(--font-main); font-size: 0.95rem; margin-bottom: 1.5rem; box-shadow: 0 4px 15px rgba(67, 56, 202, 0.25);">
+        บันทึกข้อมูลห้องเรียน
+      </button>
+
+      <hr style="border: none; border-top: 1px solid #EEF2F6; margin: 1.2rem 0;">
+
+      <!-- จัดการรายชื่อนักศึกษา -->
+      <h4 style="margin: 0 0 0.8rem 0; color: #1E1B4B; font-size: 1rem; font-weight: 800;">👥 จัดการรายชื่อนักศึกษา (Roster)</h4>
+      <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+        <input type="text" id="newStudentId" placeholder="รหัสนักศึกษา (10 หลัก)" style="width: 38%; padding: 0.6rem 0.8rem; border-radius: 12px; border: 1.5px solid #CBD5E1; font-family: var(--font-main); font-size: 0.88rem; outline: none;">
+        <input type="text" id="newStudentName" placeholder="ชื่อ - นามสกุล" style="flex: 1; padding: 0.6rem 0.8rem; border-radius: 12px; border: 1.5px solid #CBD5E1; font-family: var(--font-main); font-size: 0.88rem; outline: none;">
+        <button onclick="addSingleStudent()" style="padding: 0.6rem 1.1rem; border-radius: 9999px; border: none; background: #10B981; color: white; font-weight: 700; cursor: pointer; font-family: var(--font-main);">+ เพิ่ม</button>
+      </div>
+
+      <div id="rosterListContainer" style="max-height: 250px; overflow-y: auto; border: 1.5px solid #F1F5F9; border-radius: 14px; padding: 0.6rem; background: #F8FAFC;"></div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: ตารางคะแนนเต็มทั้งภาคการศึกษา -->
+  <div id="overviewModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 900px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem;">
+        <h3 style="margin: 0; font-size: 1.25rem; color: #1E1B4B; font-weight: 800;">📊 ภาพรวมการเข้าเรียน & คะแนนทั้งภาคการศึกษา</h3>
+        <button onclick="closeOverviewModal()" style="background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #64748B;">✕</button>
+      </div>
+      <div id="termOverviewTableContainer" style="overflow-x: auto;"></div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/admin.js"></script>
+  <script>
+    function checkAuthOnLoad() {
+      if (sessionStorage.getItem("adminAuthenticated") === "true") {
+        document.getElementById('adminAuthOverlay').style.display = 'none';
+        document.getElementById('adminBody').style.display = 'block';
+      } else {
+        document.getElementById('adminAuthOverlay').style.display = 'flex';
+        document.getElementById('adminBody').style.display = 'block';
+        document.getElementById('adminPasswordInput').focus();
+      }
+    }
+
+    function unlockAdminDashboard() {
+      const inputPass = document.getElementById('adminPasswordInput').value.trim();
+      const correctPass = (typeof CONFIG !== 'undefined' && CONFIG.TEACHER_PASSWORD) ? CONFIG.TEACHER_PASSWORD : 'psu';
+
+      if (inputPass === correctPass) {
+        sessionStorage.setItem("adminAuthenticated", "true");
+        document.getElementById('adminAuthOverlay').style.display = 'none';
+        if (typeof initAdminDashboard === 'function') initAdminDashboard();
+      } else {
+        alert("❌ รหัสผ่านอาจารย์ไม่ถูกต้อง");
+        document.getElementById('adminPasswordInput').value = '';
+        document.getElementById('adminPasswordInput').focus();
+      }
+    }
+
+    function openSettingsModal() { document.getElementById('settingsModal').style.display = 'flex'; }
+    function closeSettingsModal() { document.getElementById('settingsModal').style.display = 'none'; }
+    function openOverviewModal() { document.getElementById('overviewModal').style.display = 'flex'; }
+    function closeOverviewModal() { document.getElementById('overviewModal').style.display = 'none'; }
+
+    document.addEventListener("DOMContentLoaded", checkAuthOnLoad);
+  </script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-// js/teacher.js - แก้ไขปัญหาการเด้ง Week อัตโนมัติ ยึดค่าตาม Firebase เสมอ
+// js/teacher.js - จัดการหน้าจอสดอาจารย์ ซิงก์ค่าตาม Firebase เสมอ
 
 let secondsLeft = (typeof CONFIG !== 'undefined' && CONFIG.PIN_LIFETIME) ? CONFIG.PIN_LIFETIME : 120;
 let timerInterval = null;
@@ -26,13 +26,13 @@ function init() {
   }
 
   loadCoursesAndRoster();
-  fetchCurrentSession(); // ดึงสัปดาห์ปัจจุบันจาก Firebase โดยไม่คำนวณทับ
+  fetchCurrentSession();
   generatePIN();
   startTimer();
   setInterval(fetchData, 3000);
 }
 
-// 1. โหลดสัปดาห์เรียนจริงจาก Firebase (ไม่คำนวณวันเวลาเขียนทับอัตโนมัติ)
+// โหลดสัปดาห์เรียนจริงจาก Firebase (ไม่ให้โค้ดเก่าคำนวณทับ)
 function fetchCurrentSession() {
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
 
@@ -53,12 +53,9 @@ function fetchCurrentSession() {
       
       renderLeaderboard();
     })
-    .catch(() => {
-      renderLeaderboard();
-    });
+    .catch(() => renderLeaderboard());
 }
 
-// 2. โหลดข้อมูลรายวิชาและรายชื่อนักศึกษาจาก Firebase
 function loadCoursesAndRoster() {
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
   
@@ -115,7 +112,6 @@ function updateDynamicQRCode() {
   qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(targetUrl)}`;
 }
 
-// 3. สุ่ม PIN 4 หลัก
 function generatePIN() {
   const pin = Math.floor(1000 + Math.random() * 9000).toString();
   const pinBase = document.getElementById('pinBase');
@@ -134,11 +130,8 @@ function generatePIN() {
   });
 }
 
-function forceResetPIN() { 
-  generatePIN(); 
-}
+function forceResetPIN() { generatePIN(); }
 
-// 4. ตัวนับเวลาถอยหลัง PIN (อนิเมชัน Mask Layer 2 ชั้น)
 function startTimer() {
   if (timerInterval) clearInterval(timerInterval);
   timerInterval = setInterval(() => {
@@ -164,7 +157,6 @@ function updateTimerUI() {
   if (pinFillLayer) pinFillLayer.style.width = `${pct}%`;
 }
 
-// 5. สลับสัปดาห์ (จะบันทึกลง Firebase เฉพาะเมื่ออาจารย์เป็นคนเลือกเปลี่ยนเองเท่านั้น)
 function syncFromSideDropdown() {
   const val = document.getElementById('sideSessionSelect').value;
   if (document.getElementById('leftSessionSelect')) document.getElementById('leftSessionSelect').value = val;
@@ -191,7 +183,6 @@ function changeSession() {
   renderLeaderboard();
 }
 
-// 6. ดึงข้อมูลคะแนนและการเช็คชื่อแบบสด
 function fetchData() {
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
   fetch(`${baseUrl}attendance/${currentCourseId}.json`)
@@ -203,9 +194,8 @@ function fetchData() {
     .catch(() => {});
 }
 
-// 7. เรนเดอร์กระดานคะแนนฝั่งขวา (🥇 🥈 🥉)
 function renderLeaderboard() {
-  const safe = sanitizeKey(currentSession);
+  const safe = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
   const records = realtimeData[safe] || {};
   const tbody = document.getElementById('sideTableBody');
   if (!tbody) return;
@@ -223,9 +213,7 @@ function renderLeaderboard() {
 
   list.forEach((st, i) => {
     const isSubmitted = st.rec && (st.rec.fileUrl || st.rec.status === 'PRESENT');
-    if (isSubmitted) {
-      submitted++;
-    }
+    if (isSubmitted) submitted++;
 
     let rankDisplay = `<span class="rank-badge">#${i + 1}</span>`;
     if (isSubmitted) {
@@ -258,7 +246,6 @@ function renderLeaderboard() {
   if (totalEl) totalEl.innerText = rosterIds.length;
 }
 
-// 8. ควบคุม Modal สลับวิชา
 function openCourseSwitchModal() {
   const sel = document.getElementById('switchCourseSelect');
   sel.innerHTML = Object.keys(allCoursesData).map(cid => `
@@ -278,14 +265,8 @@ function confirmCourseSwitch() {
   loadCoursesAndRoster();
 }
 
-// 9. ควบคุม Modal สล็อต 3 หลัก
-function openSlotModal() {
-  document.getElementById('slotModal').style.display = 'flex';
-}
-
-function closeSlotModal() {
-  document.getElementById('slotModal').style.display = 'none';
-}
+function openSlotModal() { document.getElementById('slotModal').style.display = 'flex'; }
+function closeSlotModal() { document.getElementById('slotModal').style.display = 'none'; }
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" || e.key === "Esc") {
