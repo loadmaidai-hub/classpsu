@@ -1,10 +1,10 @@
-// js/submit.js - ระบบอัปโหลดและส่งการบ้าน (รองรับ Drag & Drop และเปลี่ยนชื่อไฟล์อัตโนมัติ)
+// js/submit.js - ระบบตรวจสอบชื่อไฟล์ ออโต้รีเนม และอัปโหลดตรงเข้า Google Drive ป้องกันนักศึกษาเข้าโฟลเดอร์
 
 let currentSession = "Week 1";
 let activeCourseId = null;
 let currentRoster = {};
 let assignmentConfig = null;
-let selectedFile = null;
+let readyFileToUpload = null;
 
 document.addEventListener("DOMContentLoaded", () => {
   initSubmitPage();
@@ -14,7 +14,6 @@ document.addEventListener("DOMContentLoaded", () => {
 function initSubmitPage() {
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
 
-  // 1. ดึงสัปดาห์ปัจจุบัน
   fetch(`${baseUrl}current_session.json`)
     .then(r => r.json())
     .then(session => {
@@ -41,7 +40,6 @@ function initSubmitPage() {
     .catch(err => console.error("Init Error:", err));
 }
 
-// ตรวจสอบสถานะการเปิดรับงานของอาจารย์
 function loadSessionAssignmentConfig() {
   const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
@@ -70,7 +68,6 @@ function updateAssignmentStatusUI() {
     return;
   }
 
-  // ตรวจสอบ Deadline (ถ้ามีกำหนด)
   if (assignmentConfig.deadline) {
     const deadlineTime = new Date(assignmentConfig.deadline).getTime();
     const now = new Date().getTime();
@@ -87,7 +84,6 @@ function updateAssignmentStatusUI() {
   btn.disabled = false;
 }
 
-// ค้นหารายชื่อนักศึกษาอัตโนมัติจากรหัส 10 หลัก
 function lookupStudentName() {
   const idInput = document.getElementById('studentIdInput');
   const nameInput = document.getElementById('studentNameInput');
@@ -98,12 +94,8 @@ function lookupStudentName() {
   } else {
     nameInput.value = '';
   }
-
-  // หากเลือกไฟล์ไว้แล้ว ให้รีเฟรชการแสดงชื่อไฟล์ใหม่
-  if (selectedFile) updateFilePreview(selectedFile);
 }
 
-// ตั้งค่า Drag and Drop และ File Input
 function setupDragAndDrop() {
   const dropzone = document.getElementById('dropzoneBox');
   const fileInput = document.getElementById('fileInput');
@@ -114,7 +106,7 @@ function setupDragAndDrop() {
 
   fileInput.addEventListener('change', (e) => {
     if (e.target.files && e.target.files[0]) {
-      handleFile(e.target.files[0]);
+      processSelectedFile(e.target.files[0]);
     }
   });
 
@@ -137,95 +129,135 @@ function setupDragAndDrop() {
   dropzone.addEventListener('drop', (e) => {
     const dt = e.dataTransfer;
     if (dt && dt.files && dt.files[0]) {
-      handleFile(dt.files[0]);
+      processSelectedFile(dt.files[0]);
     }
   });
 }
 
-// จัดการไฟล์และเตรียมระบบเปลี่ยนชื่อไฟล์อัตโนมัติ
-function handleFile(file) {
-  selectedFile = file;
-  updateFilePreview(file);
-}
-
-function updateFilePreview(file) {
-  const preview = document.getElementById('filePreviewText');
+// ตรวจสอบชื่อไฟล์ บังคับเปลี่ยนชื่อ และดาวน์โหลดไฟล์ใหม่ลงเครื่องให้อัตโนมัติ
+function processSelectedFile(file) {
   const stId = document.getElementById('studentIdInput').value.trim();
   const stName = document.getElementById('studentNameInput').value.trim();
 
-  const fileExt = file.name.split('.').pop();
-  let targetName = file.name;
-
-  // ฟังก์ชันจัดรูปแบบชื่อไฟล์อัตโนมัติ [รหัส] - [ชื่อ นามสกุล].[นามสกุลเดิม]
-  if (stId && stName) {
-    targetName = `${stId} - ${stName}.${fileExt}`;
+  if (!stId || !stName) {
+    alert("⚠️ กรุณากรอกรหัสนักศึกษา 10 หลักให้ถูกต้องก่อนเลือกไฟล์ เพื่อให้ระบบช่วยตั้งชื่อไฟล์ได้ถูกต้อง");
+    document.getElementById('fileInput').value = '';
+    return;
   }
 
+  const fileExt = file.name.substring(file.name.lastIndexOf('.'));
+  const correctPattern = `${stId} - ${stName}${fileExt}`;
+
+  // ตรวจว่าชื่อไฟล์ตรงกับระเบียบหรือไม่
+  if (file.name !== correctPattern) {
+    alert(`⚠️ ชื่อไฟล์เดิมไม่ถูกต้อง: "${file.name}"\n\nระบบจะทำการเปลี่ยนชื่อไฟล์เป็น:\n"${correctPattern}"\nและดาวน์โหลดไฟล์ที่ถูกต้องลงเครื่องของคุณทันที`);
+
+    // สร้าง Blob สำหรับดาวน์โหลดไฟล์ชื่อใหม่ลงเครื่องนักศึกษา
+    const blobUrl = URL.createObjectURL(file);
+    const downloadLink = document.createElement('a');
+    downloadLink.href = blobUrl;
+    downloadLink.download = correctPattern;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    URL.revokeObjectURL(blobUrl);
+
+    // บรรจุ File Object ตัวใหม่ที่ชื่อถูกต้องลงในตัวแปรสำหรับเตรียมอัปโหลดตรง
+    readyFileToUpload = new File([file], correctPattern, { type: file.type });
+  } else {
+    readyFileToUpload = file;
+  }
+
+  // อัปเดตข้อความบนหน้าจอ
+  const preview = document.getElementById('filePreviewText');
   if (preview) {
     preview.style.display = 'block';
-    preview.innerText = `📄 ไฟล์ที่เลือก: ${targetName} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+    preview.innerText = `📄 ไฟล์ที่พร้อมส่ง: ${readyFileToUpload.name} (${(readyFileToUpload.size / 1024 / 1024).toFixed(2)} MB)`;
   }
 }
 
-// อัปโหลดและบันทึกข้อมูล
-function handleAssignmentUpload(e) {
+// แปลงไฟล์เป็น Base64
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const base64Data = reader.result.split(',')[1];
+      resolve(base64Data);
+    };
+    reader.onerror = error => reject(error);
+  });
+}
+
+// ดำเนินการอัปโหลดตรงเข้า Drive (ห้ามเปิดหน้าต่าง Drive ออกมา)
+async function handleAssignmentUpload(e) {
   e.preventDefault();
 
   const stId = document.getElementById('studentIdInput').value.trim();
   const stName = document.getElementById('studentNameInput').value.trim();
 
   if (!stId || !stName) {
-    return alert("กรุณาระบุรหัสนักศึกษาให้ถูกต้องและครบถ้วน");
+    return alert("กรุณาระบุรหัสนักศึกษาให้ถูกต้อง");
   }
 
-  if (!selectedFile) {
-    return alert("กรุณาเลือกหรือลากไฟล์ชิ้นงานมาวาง");
+  if (!readyFileToUpload) {
+    return alert("กรุณาเลือกหรือลากไฟล์ชิ้นงานที่ต้องการส่ง");
   }
 
   if (!assignmentConfig || !assignmentConfig.folderUrl) {
-    return alert("ระบบยังไม่เปิดรับการบ้าน");
+    return alert("ระบบยังไม่เปิดรับการบ้าน หรือไม่พบลิงก์ปลายทาง");
   }
 
   const btn = document.getElementById('btnSubmitWork');
   btn.disabled = true;
-  btn.innerText = "⏳ กำลังส่งข้อมูล...";
+  btn.innerText = "⏳ กำลังอัปโหลดตรงไปยังคลังของอาจารย์...";
 
-  const fileExt = selectedFile.name.split('.').pop();
-  const finalFileName = `${stId} - ${stName}.${fileExt}`;
+  try {
+    const base64File = await fileToBase64(readyFileToUpload);
+    const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
+    const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
 
-  // สร้าง File Object พร้อมชื่อไฟล์ใหม่ที่ถูก format อัตโนมัติ
-  const renamedFile = new File([selectedFile], finalFileName, { type: selectedFile.type });
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-  const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
-  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+    // ถ้าลิงก์ที่อาจารย์กรอกไว้เป็น Web App Endpoint ของ Google Script ให้ยิงส่งตรง
+    if (assignmentConfig.folderUrl.includes('script.google.com')) {
+      await fetch(assignmentConfig.folderUrl, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: readyFileToUpload.name,
+          mimeType: readyFileToUpload.type || "application/octet-stream",
+          base64: base64File,
+          studentId: stId,
+          session: currentSession
+        })
+      });
+    }
 
-  const now = new Date();
-  const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    // บันทึกประวัติสถานะลง Firebase Attendance โดยไม่เปิด Google Drive ออกมา
+    const attendancePayload = {
+      fileName: readyFileToUpload.name,
+      fileSize: `${(readyFileToUpload.size / 1024 / 1024).toFixed(2)} MB`,
+      submittedTime: timeStr,
+      timestamp: timeStr,
+      fileUrl: assignmentConfig.folderUrl // บันทึกลิงก์อ้างอิงให้ฝั่งอาจารย์ดู
+    };
 
-  const payload = {
-    fileUrl: assignmentConfig.folderUrl,
-    fileName: finalFileName,
-    fileSize: `${(renamedFile.size / 1024 / 1024).toFixed(2)} MB`,
-    submittedTime: timeStr,
-    timestamp: timeStr
-  };
+    await fetch(`${baseUrl}attendance/${activeCourseId}/${safeSession}/${stId}.json`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(attendancePayload)
+    });
 
-  // บันทึกสถานะส่งงานลง Firebase Attendance
-  fetch(`${baseUrl}attendance/${activeCourseId}/${safeSession}/${stId}.json`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  })
-  .then(() => {
-    alert(`✓ ส่งการบ้านสัปดาห์ [${currentSession}] สำเร็จ!\nชื่อไฟล์: ${finalFileName}`);
-    // เปิดพาไปโฟลเดอร์ Google Drive ของอาจารย์ทันที
-    window.open(assignmentConfig.folderUrl, '_blank');
+    alert(`✅ ส่งการบ้านสำเร็จเรียบร้อย!\nไฟล์: ${readyFileToUpload.name}\n(ส่งตรงเข้าสู่คลังเก็บงานของอาจารย์แล้ว)`);
     window.location.reload();
-  })
-  .catch(err => {
-    console.error("Upload error:", err);
-    alert("เกิดข้อผิดพลาดในการส่งการบ้าน กรุณาลองใหม่อีกครั้ง");
+
+  } catch (err) {
+    console.error("Upload Error:", err);
+    alert("❌ เกิดข้อผิดพลาดในการอัปโหลดไฟล์ กรุณาลองใหม่อีกครั้ง");
     btn.disabled = false;
     btn.innerText = "🚀 อัปโหลดส่งการบ้านเดี๋ยวนี้";
-  });
+  }
 }
