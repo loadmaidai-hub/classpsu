@@ -56,31 +56,70 @@ function loadSessionAssignmentConfig() {
     });
 }
 
+let countdownTimerInterval = null;
+
 function updateAssignmentStatusUI() {
   const badge = document.getElementById('assignmentStatusBadge');
   const btn = document.getElementById('btnSubmitWork');
   if (!badge || !btn) return;
 
+  // เคลียร์ Timer เดิมเพื่อป้องกันการนับซ้อน
+  if (countdownTimerInterval) {
+    clearInterval(countdownTimerInterval);
+    countdownTimerInterval = null;
+  }
+
+  // กรณีไม่มีลิงก์โฟลเดอร์
   if (!assignmentConfig || !assignmentConfig.folderUrl) {
     badge.className = 'badge-status';
-    badge.innerText = '⚠️ ยังไม่เปิดรับการบ้าน (ไม่มีลิงก์โฟลเดอร์)';
+    badge.innerText = '⚠️ ยังไม่เปิดรับการบ้าน';
     btn.disabled = true;
     return;
   }
 
+  // กรณีมีกำหนดเวลา Deadline
   if (assignmentConfig.deadline) {
     const deadlineTime = new Date(assignmentConfig.deadline).getTime();
-    if (new Date().getTime() > deadlineTime) {
-      badge.className = 'badge-status';
-      badge.innerText = '❌ ปิดรับการบ้านแล้ว (เลยกำหนดส่ง)';
-      btn.disabled = true;
-      return;
-    }
-  }
 
-  badge.className = 'badge-status open';
-  badge.innerText = '✅ กำลังเปิดรับการบ้าน';
-  btn.disabled = false;
+    const updateCountdown = () => {
+      const now = new Date().getTime();
+      const diff = deadlineTime - now;
+
+      if (diff <= 0) {
+        clearInterval(countdownTimerInterval);
+        countdownTimerInterval = null;
+        badge.className = 'badge-status';
+        badge.innerText = '❌ ปิดรับการบ้านแล้ว';
+        btn.disabled = true;
+        return;
+      }
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      // จัดฟอร์แมตเวลาแสดงผล
+      const hStr = String(hours).padStart(2, '0');
+      const mStr = String(minutes).padStart(2, '0');
+      const sStr = String(seconds).padStart(2, '0');
+
+      badge.className = 'badge-status open';
+      if (hours > 0) {
+        badge.innerText = `⏳ เหลือเวลาอีก ${hStr}:${mStr}:${sStr}`;
+      } else {
+        badge.innerText = `⏳ เหลือเวลาอีก ${mStr}:${sStr} นาที`;
+      }
+      btn.disabled = false;
+    };
+
+    updateCountdown();
+    countdownTimerInterval = setInterval(updateCountdown, 1000);
+  } else {
+    // กรณีเปิดรับแบบไม่ได้ตั้งเวลาปิดรับ (ไม่ระบุ Deadline)
+    badge.className = 'badge-status open';
+    badge.innerText = '✅ กำลังเปิดรับการบ้าน';
+    btn.disabled = false;
+  }
 }
 
 function lookupStudentName() {
