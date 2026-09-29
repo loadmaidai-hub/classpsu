@@ -773,34 +773,28 @@ function confirmSaveStatus() {
 
   const stId = currentEditingStudentId;
   const newStatus = document.getElementById('modalStatusSelect').value;
-  const rec = sessionAttendance[stId] || {};
 
-  let leaveReason = rec.leaveReason || null;
-  if (newStatus === 'LEAVE') {
-    leaveReason = prompt("ระบุเหตุผลการลา (ถ้ามี):", leaveReason || "ลาเรียน") || "ลาเรียน";
+  if (!sessionAttendance[stId]) {
+    sessionAttendance[stId] = {};
   }
 
-  const now = new Date();
-  const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-  const isAbsent = (newStatus === 'ABSENT');
-  let newAttScore = (newStatus === 'PRESENT') ? 100 : (newStatus === 'LATE' ? 50 : (newStatus === 'LEAVE' ? 80 : 0));
+  sessionAttendance[stId].status = newStatus;
 
-  const updatePayload = {
-    status: newStatus,
-    leaveReason: newStatus === 'LEAVE' ? leaveReason : null,
-    attendanceScore: newAttScore,
-    checkInTime: isAbsent ? null : (rec.checkInTime || timeStr),
-    timestamp: isAbsent ? null : (rec.timestamp || timeStr)
-  };
-
-  if (isAbsent && sessionAttendance[stId]) {
-    delete sessionAttendance[stId].checkInTime;
-    delete sessionAttendance[stId].timestamp;
-    sessionAttendance[stId].status = 'ABSENT';
+  // กำหนดคะแนนเข้าห้องตามสถานะที่เลือก (มาสายได้ 50 คะแนน, ตรงเวลาได้ 100, นอกนั้น 0)
+  if (newStatus === 'PRESENT') {
+    sessionAttendance[stId].attendanceScore = 100;
+  } else if (newStatus === 'LATE') {
+    sessionAttendance[stId].attendanceScore = 50; // บังคับมาสายได้ 50 คะแนนถ้วน
+  } else if (newStatus === 'LEAVE') {
     sessionAttendance[stId].attendanceScore = 0;
   } else {
-    sessionAttendance[stId] = Object.assign(sessionAttendance[stId] || {}, updatePayload);
+    sessionAttendance[stId].attendanceScore = 0;
   }
+
+  // บันทึกเวลาเปลี่ยนสถานะ
+  const now = new Date();
+  sessionAttendance[stId].checkInTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
   closeStatusModal();
   renderDashboardUI();
 
@@ -809,10 +803,16 @@ function confirmSaveStatus() {
   const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
 
+  const payload = {
+    status: newStatus,
+    attendanceScore: sessionAttendance[stId].attendanceScore,
+    checkInTime: sessionAttendance[stId].checkInTime
+  };
+
   fetch(`${baseUrl}attendance/${activeCourseId}/${safeSession}/${stId}.json`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(updatePayload)
+    body: JSON.stringify(payload)
   }).then(() => setSystemStatus(true))
     .catch(() => setSystemStatus(false));
 }
