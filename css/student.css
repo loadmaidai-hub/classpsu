@@ -1,0 +1,209 @@
+.student-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 28px;
+  padding: 2.2rem;
+  max-width: 480px;
+  width: 100%;
+  margin: 1.5rem auto;
+  border: 1px solid var(--border-soft);
+  box-shadow: 0 25px 60px -15px rgba(67, 56, 202, 0.12);
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .student-card {
+    padding: 1.5rem 1.2rem;
+    border-radius: 20px;
+  }
+}
+
+.card-top-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.tag-present {
+  background: #ECFDF5;
+  color: #059669;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.session-badge-txt {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.card-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #1E1B4B;
+  margin-bottom: 0.3rem;
+}
+
+.card-desc {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  margin-bottom: 1.4rem;
+}
+
+.form-group {
+  margin-bottom: 1.1rem;
+  text-align: left;
+}
+
+label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #334155;
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+input {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border-radius: 14px;
+  border: 1.5px solid var(--border-soft);
+  font-size: 0.95rem;
+  outline: none;
+  background: white;
+  transition: border-color 0.2s;
+}
+
+input:focus {
+  border-color: var(--primary);
+}
+
+.input-readonly {
+  background: #F8FAFC;
+}
+
+.pin-input-box {
+  letter-spacing: 6px;
+  font-size: 1.3rem;
+  text-align: center;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.btn-action {
+  width: 100%;
+  padding: 0.85rem;
+  border-radius: 14px;
+  border: none;
+  background: var(--primary);
+  color: white;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 0.6rem;
+}
+
+.btn-action:hover:not(:disabled) {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn-action:disabled {
+  background: #94A3B8;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.link-wrapper {
+  margin-top: 1.2rem;
+}
+
+.sub-link {
+  font-size: 0.85rem;
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+#quizSection {
+  display: none;
+  margin-top: 1.5rem;
+  text-align: left;
+  border-top: 1.5px dashed var(--border-soft);
+  padding-top: 1.2rem;
+}
+
+.quiz-head-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.quiz-title-txt {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #1E1B4B;
+}
+
+.quiz-timer-txt {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--danger);
+}
+
+.quiz-desc-txt {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 0.3rem;
+}
+
+.quiz-options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.btn-opt {
+  padding: 1rem;
+  border-radius: 14px;
+  border: 2px solid var(--border-soft);
+  background: #F8FAFC;
+  font-weight: 800;
+  font-size: 1.2rem;
+  color: #1E1B4B;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+
+.btn-opt:hover {
+  background: #EEF2FF;
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.result-box-wrapper {
+  display: none;
+  margin-top: 1.2rem;
+  padding: 1rem;
+  border-radius: 14px;
+  background: #ECFDF5;
+  border: 1px solid #A7F3D0;
+}
+
+.result-title {
+  color: #065F46;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.result-details-txt {
+  font-size: 0.88rem;
+  color: #047857;
+  margin-top: 0.3rem;
+}
