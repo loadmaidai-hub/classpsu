@@ -783,7 +783,7 @@ function confirmSaveStatus() {
   const now = new Date();
   const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   const isAbsent = (newStatus === 'ABSENT');
-  let newAttScore = (newStatus === 'PRESENT') ? 100 : (newStatus === 'LATE' ? 80 : (newStatus === 'LEAVE' ? 80 : 0));
+  let newAttScore = (newStatus === 'PRESENT') ? 100 : (newStatus === 'LATE' ? 50 : (newStatus === 'LEAVE' ? 80 : 0));
 
   const updatePayload = {
     status: newStatus,
