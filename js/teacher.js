@@ -224,19 +224,22 @@ function renderLeaderboard() {
 
   const rosterIds = Object.keys(currentRoster);
   
-  // คำนวณคะแนนรวม (คะแนนเข้าห้องเต็ม 100 + คะแนนควิซเต็ม 100 = เต็ม 200 คะแนน) และจัดเรียงแบบเรียลไทม์
+  // คำนวณคะแนนรวม: มาตรงเวลาได้ 100, มาสายได้ 50, ลา/ขาดได้ 0 + คะแนนควิซเต็ม 100
   let list = rosterIds.map(id => {
     const rec = records[id] || {};
     const isCheckedIn = rec.status === 'PRESENT' || rec.status === 'LATE' || rec.checkInTime;
     
-    // คำนวณคะแนนเข้าห้อง (มาตรงเวลาได้ 100, มาสายได้ 80 หรือตามที่แอดมินให้)
-    let attScore = rec.attendanceScore !== undefined ? Number(rec.attendanceScore) : (isCheckedIn ? 100 : 0);
-    if (rec.status === 'LEAVE') attScore = 0;
+    let attScore = 0;
+    if (rec.status === 'PRESENT') {
+      attScore = 100;
+    } else if (rec.status === 'LATE') {
+      attScore = 50; // มาสายได้ 50 คะแนน
+    } else if (isCheckedIn) {
+      attScore = 100; // เช็คอินปกติได้ 100
+    }
 
-    // คะแนนควิซ
     let quizScore = rec.quizScore !== undefined ? Number(rec.quizScore) : (rec.score !== undefined ? Number(rec.score) : 0);
     
-    // คะแนนรวมเต็ม 200
     let totalScore = isCheckedIn ? (attScore + quizScore) : -1;
 
     return {
@@ -272,7 +275,7 @@ function renderLeaderboard() {
         <span class="${st.isCheckedIn ? 'tag-submitted' : 'tag-waiting'}">${st.isCheckedIn ? 'เช็คอิน' : 'รอเช็คอิน'}</span>
       </td>
       <td style="text-align:right;">
-        <span class="score-text">${st.isCheckedIn ? st.totalScore + ' / 200' : '-'}</span>
+        <span class="score-text">${st.isCheckedIn ? st.totalScore + ' แต้ม' : '-'}</span>
       </td>
     `;
     tbody.appendChild(tr);
