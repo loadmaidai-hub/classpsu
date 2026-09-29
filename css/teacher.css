@@ -92,7 +92,7 @@
   margin-bottom: 1.4rem;
 }
 
-/* กล่อง PIN 2 ชั้น (Half-half color masking) */
+/* กล่อง PIN 2 ชั้น */
 .pin-display-box {
   position: relative;
   border: 1.5px dashed #818CF8;
@@ -166,7 +166,6 @@
 .layer-base .big-pin { color: #4338CA; }
 .layer-fill .big-pin { color: #FFFFFF; }
 
-/* แถวปุ่มควบคุมบน ปรับขนาด 44px */
 .control-row {
   display: flex;
   justify-content: center;
@@ -241,7 +240,6 @@
   border-color: #CBD5E1;
 }
 
-/* แคปซูลรหัสผ่าน */
 .admin-auth-capsule {
   display: flex;
   align-items: center;
@@ -294,7 +292,6 @@
   background: #3730A3;
 }
 
-/* ฝั่งขวา: ตารางคะแนนสด */
 .right-card {
   padding: 1.8rem;
 }

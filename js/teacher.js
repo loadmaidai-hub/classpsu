@@ -32,7 +32,7 @@ function init() {
   setInterval(fetchData, 3000);
 }
 
-// โหลดสัปดาห์เรียนจริงจาก Firebase (ไม่ให้โค้ดเก่าคำนวณทับ)
+// โหลดสัปดาห์เรียนจริงจาก Firebase
 function fetchCurrentSession() {
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
 
@@ -108,32 +108,30 @@ function updateDynamicQRCode() {
   if (!qrImg) return;
   const currentPath = window.location.pathname;
   const basePath = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
-  const targetUrl = `${window.location.origin}${basePath}index.html?course=${encodeURIComponent(currentCourseId)}`;
+  const targetUrl = `${window.location.origin}${basePath}index.html?courseId=${encodeURIComponent(currentCourseId)}`;
   qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(targetUrl)}`;
 }
 
-function generateNewPin() {
-  // สุ่มเลข 4 หลัก
-  const newPin = Math.floor(1000 + Math.random() * 9000).toString();
-  
-  // แสดงผลบนหน้าจอทันที
-  const pinDisplay = document.getElementById('pinDisplay');
-  if (pinDisplay) pinDisplay.innerText = newPin;
+function generatePIN() {
+  const lifetime = (typeof CONFIG !== 'undefined' && CONFIG.PIN_LIFETIME) ? CONFIG.PIN_LIFETIME : 120;
+  secondsLeft = lifetime;
 
-  // ส่งขึ้น Firebase เพื่อให้นักเรียนกรอกตรงกัน
-  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
-  
-  fetch(`${baseUrl}current_pin.json`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(newPin)
-  })
-  .then(() => {
-    console.log("PIN synced to Firebase:", newPin);
-  })
-  .catch(err => {
-    console.error("Error syncing PIN:", err);
-  });
+  const newPin = Math.floor(1000 + Math.random() * 9000).toString();
+
+  const pinBase = document.getElementById('pinBase');
+  const pinFill = document.getElementById('pinFill');
+  if (pinBase) pinBase.innerText = newPin;
+  if (pinFill) pinFill.innerText = newPin;
+
+  if (typeof CONFIG !== 'undefined' && CONFIG.FIREBASE_DB_URL) {
+    const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+    
+    fetch(`${baseUrl}current_pin.json`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newPin)
+    }).catch(err => console.error("Error syncing PIN:", err));
+  }
 }
 
 function forceResetPIN() { generatePIN(); }
@@ -192,7 +190,6 @@ function changeSession() {
 function fetchData() {
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
   
-  // ดึง attendance ทั้งก้อนเพื่อรองรับทั้งข้อมูลใหม่ (ใต้รหัสวิชา) และข้อมูลเก่า (ที่ Root)
   fetch(`${baseUrl}attendance.json`)
     .then(r => r.json())
     .then(allAttendance => {
@@ -202,10 +199,7 @@ function fetchData() {
         return;
       }
 
-      // ดึงข้อมูลใต้รหัสวิชาปัจจุบัน (ถ้ามี)
       const courseData = allAttendance[currentCourseId] || {};
-
-      // ผสานข้อมูลทั้งก้อนเข้าด้วยกัน เพื่อให้ตรวจพบคีย์ Week 1 ที่อยู่ข้างนอกด้วย
       realtimeData = Object.assign({}, allAttendance, courseData);
       renderLeaderboard();
     })
@@ -217,11 +211,8 @@ function renderLeaderboard() {
   if (!tbody) return;
 
   const safe = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
-  
-  // ค้นหาข้อมูลของสัปดาห์ปัจจุบัน (ตรวจทั้งคีย์ตรง และคีย์ภาษาไทยของ Week 1)
   let records = realtimeData[safe] || realtimeData[currentSession] || {};
 
-  // กรณีเป็น Week 1 ให้กวาดหาคีย์ที่มีคำว่า Week 1 หรือ 16 ก.ย.
   if (Object.keys(records).length === 0 && (currentSession.includes("Week 1") || currentSession === "Week 1")) {
     const matchedKey = Object.keys(realtimeData).find(k => 
       k.includes("Week 1") || k.includes("16 ก.ย.")
@@ -232,22 +223,39 @@ function renderLeaderboard() {
   }
 
   const rosterIds = Object.keys(currentRoster);
-  let list = rosterIds.map(id => ({
-    id,
-    name: currentRoster[id],
-    rec: records[id],
-    score: records[id] && records[id].status !== 'LEAVE' ? (records[id].score || 0) : -1
-  })).sort((a, b) => b.score - a.score);
+  
+  // คำนวณคะแนนรวม (คะแนนเข้าห้องเต็ม 100 + คะแนนควิซเต็ม 100 = เต็ม 200 คะแนน) และจัดเรียงแบบเรียลไทม์
+  let list = rosterIds.map(id => {
+    const rec = records[id] || {};
+    const isCheckedIn = rec.status === 'PRESENT' || rec.status === 'LATE' || rec.checkInTime;
+    
+    // คำนวณคะแนนเข้าห้อง (มาตรงเวลาได้ 100, มาสายได้ 80 หรือตามที่แอดมินให้)
+    let attScore = rec.attendanceScore !== undefined ? Number(rec.attendanceScore) : (isCheckedIn ? 100 : 0);
+    if (rec.status === 'LEAVE') attScore = 0;
+
+    // คะแนนควิซ
+    let quizScore = rec.quizScore !== undefined ? Number(rec.quizScore) : (rec.score !== undefined ? Number(rec.score) : 0);
+    
+    // คะแนนรวมเต็ม 200
+    let totalScore = isCheckedIn ? (attScore + quizScore) : -1;
+
+    return {
+      id,
+      name: currentRoster[id],
+      rec,
+      isCheckedIn,
+      totalScore
+    };
+  }).sort((a, b) => b.totalScore - a.totalScore);
 
   let submitted = 0;
   tbody.innerHTML = '';
 
   list.forEach((st, i) => {
-    const isSubmitted = st.rec && (st.rec.fileUrl || st.rec.status === 'PRESENT');
-    if (isSubmitted) submitted++;
+    if (st.isCheckedIn) submitted++;
 
     let rankDisplay = `<span class="rank-badge">#${i + 1}</span>`;
-    if (isSubmitted) {
+    if (st.isCheckedIn) {
       if (i === 0) rankDisplay = `<span style="font-size: 1.25rem;">🥇</span>`;
       else if (i === 1) rankDisplay = `<span style="font-size: 1.25rem;">🥈</span>`;
       else if (i === 2) rankDisplay = `<span style="font-size: 1.25rem;">🥉</span>`;
@@ -261,10 +269,10 @@ function renderLeaderboard() {
         <div class="student-meta-id">${st.id}</div>
       </td>
       <td style="text-align:center;">
-        <span class="${isSubmitted ? 'tag-submitted' : 'tag-waiting'}">${isSubmitted ? 'ส่งแล้ว' : 'ยังไม่ส่ง'}</span>
+        <span class="${st.isCheckedIn ? 'tag-submitted' : 'tag-waiting'}">${st.isCheckedIn ? 'เช็คอิน' : 'รอเช็คอิน'}</span>
       </td>
       <td style="text-align:right;">
-        <span class="score-text">${st.rec && st.score > -1 ? st.score + ' แต้ม' : '-'}</span>
+        <span class="score-text">${st.isCheckedIn ? st.totalScore + ' / 200' : '-'}</span>
       </td>
     `;
     tbody.appendChild(tr);

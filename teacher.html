@@ -11,7 +11,6 @@
   <link rel="stylesheet" href="css/teacher.css">
   <link rel="stylesheet" href="css/slot.css">
   <style>
-    /* สไตล์เพิ่มเติมสำหรับ Modal สลับวิชา */
     .course-switch-modal {
       display: none;
       position: fixed;
@@ -29,7 +28,6 @@
 <body>
 
   <div class="dual-pane">
-    <!-- ฝั่งซ้าย: หน้าจอสดและ PIN -->
     <div class="frame-box left-card">
       <div class="window-header">
         <div class="mac-dots">
@@ -51,7 +49,7 @@
       <h1 class="projector-title" id="sessionTitle">กำลังโหลดข้อมูล...</h1>
       <p class="projector-subtitle" id="sessionSubtitle">-</p>
 
-      <!-- กล่อง PIN 2 ชั้น -->
+      <!-- กล่อง PIN 2 ชั้น พร้อม ID ให้สคริปต์ดึงไปแสดงผล -->
       <div class="pin-display-box" id="pinBox">
         <div class="pin-layer layer-base">
           <div class="pin-top-bar">
@@ -72,7 +70,6 @@
         </div>
       </div>
 
-      <!-- กล่อง QR Code อัตโนมัติ -->
       <div style="display:inline-flex; align-items:center; gap:1.2rem; background:#F8FAFC; border:1.5px solid #E2E8F0; padding:0.6rem 1.4rem; border-radius:22px; margin-bottom:1.3rem;">
         <img id="qrCodeImg" src="" alt="QR Code" style="width:75px; height:75px; border-radius:12px; border:2px solid white; box-shadow:0 4px 12px rgba(0,0,0,0.06);">
         <div style="text-align:left;">
@@ -81,7 +78,6 @@
         </div>
       </div>
 
-      <!-- แถวปุ่มควบคุมกลาง -->
       <div class="control-row">
         <button class="btn-ctrl btn-pin" onclick="forceResetPIN()">
           <span>⚡</span> สุ่ม PIN เดี๋ยวนี้
@@ -96,7 +92,6 @@
         </button>
       </div>
 
-      <!-- แถบกรอกรหัสเข้าแดชบอร์ดอาจารย์ -->
       <div class="admin-auth-capsule">
         <input type="password" id="teacherPassInput" placeholder="ใส่รหัสอาจารย์เพื่อเข้าแดชบอร์ด" onkeyup="if(event.key==='Enter') enterTeacherDashboard()">
         <button class="btn-capsule-submit" onclick="enterTeacherDashboard()">
@@ -105,7 +100,6 @@
       </div>
     </div>
 
-    <!-- ฝั่งขวา: ตารางคะแนนสด -->
     <div class="frame-box right-card">
       <div class="right-header">
         <div>
@@ -137,7 +131,6 @@
     </div>
   </div>
 
-  <!-- MODAL สล็อต 3 หลัก -->
   <div id="slotModal" class="slot-overlay">
     <div class="slot-frame">
       <button onclick="closeSlotModal()" class="slot-close">✕</button>
@@ -159,7 +152,6 @@
     </div>
   </div>
 
-  <!-- MODAL เลือกสลับรายวิชา -->
   <div id="courseSwitchModal" class="course-switch-modal">
     <div style="background: white; border-radius: 24px; padding: 2rem; width: 90%; max-width: 440px; box-shadow: 0 25px 50px rgba(0,0,0,0.15); text-align: left;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem;">
