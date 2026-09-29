@@ -823,11 +823,54 @@ function confirmResetStudentSubmission() {
   const stId = currentEditingStudentId;
   const studentName = activeRoster[stId] || stId;
 
-  if (!confirm(`ต้องการรีเซ็ตข้อมูลทั้งหมด (สถานะเช็คชื่อ, คะแนนเข้าห้อง, คะแนนควิซ, การบ้าน และ IP Address) ของ:\n"${studentName} (${stId})"\nใช่หรือไม่?`)) {
+  if (!confirm(`ต้องการรีเซ็ตการส่งการบ้านของ:\n"${studentName} (${stId})"\nใช่หรือไม่?`)) {
     return;
   }
 
-  // ลบข้อมูลทั้งหมดของนักศึกษาในเซสชันนี้ฝั่ง Client
+  if (sessionAttendance[stId]) {
+    delete sessionAttendance[stId].fileUrl;
+    delete sessionAttendance[stId].fileName;
+    delete sessionAttendance[stId].fileSize;
+    delete sessionAttendance[stId].submittedTime;
+    delete sessionAttendance[stId].homeworkScore;
+  }
+  alert("✅ รีเซ็ตการส่งการบ้านของนักศึกษาเรียบร้อยแล้ว");
+  closeStatusModal();
+  renderDashboardUI();
+
+  if (typeof CONFIG === 'undefined' || !CONFIG.FIREBASE_DB_URL) return;
+
+  const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+
+  const resetHwPayload = {
+    fileUrl: null,
+    fileName: null,
+    fileSize: null,
+    submittedTime: null,
+    homeworkScore: null
+  };
+
+  fetch(`${baseUrl}attendance/${activeCourseId}/${safeSession}/${stId}.json`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(resetHwPayload)
+  }).then(() => setSystemStatus(true))
+    .catch(() => setSystemStatus(false));
+}
+
+// ฟังก์ชันรีเซตแบบเต็มรูปแบบ (ล้างสถานะ, คะแนน, IP และควิซ) แยกปุ่มออกมาต่างหาก
+function confirmFullResetStudent() {
+  if (!currentEditingStudentId) return;
+
+  const stId = currentEditingStudentId;
+  const studentName = activeRoster[stId] || stId;
+
+  if (!confirm(`⚠️ คำเตือน: ต้องการรีเซ็ตข้อมูลทั้งหมดของ:\n"${studentName} (${stId})"\n(รวมถึงสถานะเช็คชื่อ คะแนนเข้าห้อง คะแนนควิซ และ IP Address) ใช่หรือไม่?`)) {
+    return;
+  }
+
+  // ลบข้อมูลทั้งหมดฝั่ง Client
   if (sessionAttendance[stId]) {
     delete sessionAttendance[stId].status;
     delete sessionAttendance[stId].attendanceScore;
@@ -844,7 +887,7 @@ function confirmResetStudentSubmission() {
     delete sessionAttendance[stId].ipAddress;
   }
 
-  alert("✅ รีเซ็ตข้อมูลการเข้าเรียน ควิซ และการบ้านทั้งหมดเรียบร้อยแล้ว");
+  alert("✅ ล้างข้อมูลการเช็คชื่อ IP Address และคะแนนทั้งหมดของนักศึกษาเรียบร้อยแล้ว");
   closeStatusModal();
   renderDashboardUI();
 
@@ -853,8 +896,8 @@ function confirmResetStudentSubmission() {
   const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
 
-  // ส่งคำสั่งลบ/เคลียร์ข้อมูลทั้งหมดใน Firebase ของนักศึกษาคนนี้ประจำเซสชัน
-  const resetPayload = {
+  // ส่งคำสั่งอัปเดตค่าทั้งหมดเป็น null เพื่อลบออกจาก Firebase Realtime Database
+  const fullResetPayload = {
     status: null,
     attendanceScore: null,
     checkInTime: null,
@@ -873,11 +916,11 @@ function confirmResetStudentSubmission() {
   fetch(`${baseUrl}attendance/${activeCourseId}/${safeSession}/${stId}.json`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(resetPayload)
+    body: JSON.stringify(fullResetPayload)
   }).then(() => setSystemStatus(true))
     .catch(() => setSystemStatus(false));
 
-  // ลบผลคะแนนควิซในส่วนของ quiz_submissions แยกต่างหากด้วย (ถ้ามี)
+  // ลบประวัติควิซแยกต่างหาก
   fetch(`${baseUrl}quiz_submissions/${activeCourseId}/${safeSession}/${stId}.json`, {
     method: "DELETE"
   }).catch(() => {});
