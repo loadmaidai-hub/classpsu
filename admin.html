@@ -2,143 +2,422 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Control Center - ระบบจัดการห้องเรียน</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ระบบจัดการชั้นเรียน - Admin Control Center</title>
+  <!-- โหลดไลบรารี SheetJS สำหรับอ่านไฟล์ Excel/CSV -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <link rel="stylesheet" href="css/admin.css">
 </head>
-<body id="adminBody" style="display: none;">
+<body>
 
-  <!-- Modal ล็อกอินอาจารย์ -->
-  <div id="adminAuthOverlay">
-    <div class="auth-card">
-      <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🔒</div>
-      <h2 style="font-size: 1.4rem; font-weight: 800; color: #1E1B4B; margin: 0 0 0.3rem 0;">ระบบรักษาความปลอดภัย</h2>
-      <p style="font-size: 0.88rem; color: #64748B; margin: 0 0 1.2rem 0;">กรุณากรอกรหัสผ่านอาจารย์ผู้สอนเพื่อเข้าสู่แดชบอร์ด</p>
-      
-      <input type="password" id="adminPasswordInput" placeholder="••••••••" style="width: 100%; padding: 0.85rem; border-radius: 16px; border: 1.5px solid #E2E8F0; font-size: 1.1rem; text-align: center; outline: none; margin-bottom: 1.2rem; font-family: var(--font-main);" onkeyup="if(event.key==='Enter') unlockAdminDashboard()">
-      <button type="button" onclick="unlockAdminDashboard()" style="width: 100%; padding: 0.9rem; border-radius: 9999px; border: none; background: #4338CA; color: white; font-size: 1.05rem; font-weight: 700; cursor: pointer; font-family: var(--font-main);">ปลดล็อกเข้าสู่ระบบ 🔒</button>
+  <!-- ฉากหลังมืดเมื่อเปิด Sidebar บนมือถือ -->
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar()"></div>
+
+  <!-- แถบเมนูด้านซ้าย (Sidebar) -->
+  <aside class="sidebar" id="sidebarMenu">
+    <!-- ส่วนหัวโปรไฟล์ระบบ -->
+    <div class="sidebar-brand">
+      <div class="brand-avatar">🎓</div>
+      <div class="brand-title-box">
+        <h3>ระบบจัดการชั้นเรียน</h3>
+        <p>Classroom Management</p>
+      </div>
+      <button type="button" class="sidebar-close-btn" onclick="toggleSidebar()">✕</button>
     </div>
-  </div>
 
-  <div class="admin-wrapper">
-    <!-- Header -->
-    <header class="top-header">
-      <div class="header-title-box">
-        <h1>Admin Control Center</h1>
-        <p id="adminCourseSubtitle">กำลังโหลดข้อมูลวิชา...</p>
+    <div class="sidebar-scroll">
+      <div class="nav-group">
+        <a href="#" class="nav-link active" onclick="switchMainTab('dashboard', this)">
+          <span class="icon">🏠</span>
+          <span>หน้าหลัก</span>
+        </a>
       </div>
 
-      <div class="header-tools">
-        <!-- เลือกสัปดาห์ -->
-        <select id="sessionSelect" class="pill-select" onchange="onAdminSessionChange()"></select>
+      <div class="nav-section-title">การจัดการชั้นเรียน</div>
+      <div class="nav-group">
+        <button type="button" class="nav-link" onclick="switchMainTab('dashboard', this); scrollToSection('tableSection');">
+          <span class="icon">👥</span>
+          <span>ชั้นเรียน & บันทึกคะแนน</span>
+        </button>
+        <button type="button" class="nav-link" id="navQuizTab" onclick="switchMainTab('quizManager', this)">
+          <span class="icon">📝</span>
+          <span>จัดการควิซ & หลักฐาน</span>
+        </button>
+        <!-- เมนูจัดการตำแหน่งห้องเรียน (Location Lock) -->
+        <button type="button" class="nav-link" id="navLocationTab" onclick="switchMainTab('locationManager', this)">
+          <span class="icon">📍</span>
+          <span>จัดการตำแหน่ง (GPS Lock)</span>
+        </button>
+        <button type="button" class="nav-link" onclick="switchMainTab('dashboard', this); scrollToSection('hwSection');">
+          <span class="icon">📁</span>
+          <span>จัดการงาน / การบ้าน</span>
+        </button>
+        <button type="button" class="nav-link" onclick="openOverviewModal()">
+          <span class="icon">📊</span>
+          <span>ภาพรวมคะแนนเทอม</span>
+        </button>
+      </div>
 
-        <!-- กำหนดเวลาตัดสาย -->
-        <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; font-weight: 600; color: #475569;">
-          <span>⏰ ตัดสาย:</span>
-          <input type="time" id="cutoffTimeInput" value="10:45" style="border: 1.5px solid #CBD5E1; border-radius: 9999px; padding: 0.3rem 0.6rem; font-family: var(--font-main);" onchange="saveCutoffTime()">
+      <div class="nav-section-title">ข้อมูลหลัก</div>
+      <div class="nav-group">
+        <button type="button" class="nav-link" onclick="openSettingsModal()">
+          <span class="icon">📖</span>
+          <span>รายวิชา / ข้อมูลห้องเรียน</span>
+        </button>
+        <button type="button" class="nav-link" onclick="openSettingsModal()">
+          <span class="icon">👨‍🎓</span>
+          <span>ห้องเรียน / นักเรียน (Excel)</span>
+        </button>
+        <a href="teacher.html" target="_blank" class="nav-link">
+          <span class="icon">📺</span>
+          <span>หน้าจอฉายห้องเรียน</span>
+        </a>
+      </div>
+
+      <div class="nav-section-title">ระบบ</div>
+      <div class="nav-group">
+        <button type="button" class="nav-link" onclick="exportAttendanceToCSV()">
+          <span class="icon">💾</span>
+          <span>ส่งออกข้อมูล (CSV)</span>
+        </button>
+        <button type="button" class="nav-link text-danger" onclick="logoutAdmin()">
+          <span class="icon">🚪</span>
+          <span>ออกจากระบบ</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- หน้าจอหลัก (Main Content) -->
+  <div class="main-viewport">
+    
+    <!-- Top Bar -->
+    <header class="top-nav">
+      <div class="top-nav-left">
+        <button type="button" class="menu-toggle-btn" onclick="toggleSidebar()" aria-label="Open Menu">☰</button>
+        <button type="button" class="nav-icon-btn hidden-mobile" title="Back">←</button>
+        <h2 class="page-title" id="topPageTitle">ระบบจัดการชั้นเรียน</h2>
+      </div>
+
+      <div class="top-nav-right">
+        <div id="systemStatusPill" class="status-indicator-pill pill-online">
+          <span class="status-dot"></span>
+          <span id="systemStatusText" class="status-text">Online</span>
         </div>
-
-        <button class="pill-btn btn-blue" onclick="openOverviewModal()">📊 ดูตารางคะแนนเต็ม</button>
-        <button class="pill-btn btn-light-blue" onclick="exportAttendanceToCSV()">📥 โหลด CSV</button>
-        <button class="pill-btn" style="background:#F1F5F9; color:#1E293B;" onclick="openSettingsModal()">⚙️ ตั้งค่าห้องเรียน/วิชา</button>
-        <button class="pill-btn btn-danger" onclick="logoutAdmin()">🚪 ออกจากระบบ</button>
       </div>
     </header>
 
-    <!-- แถบตั้งค่าลิงก์ Drive แนวนอน 1 บรรทัด -->
-    <div class="drive-setup-bar">
-      <span style="font-weight: 700; color: #1E1B4B; white-space: nowrap;">📁 ลิงก์โฟลเดอร์ Drive:</span>
-      <input type="text" id="hwFolderUrl" placeholder="https://drive.google.com/drive/folders/...">
+    <!-- Main Body Container -->
+    <main class="page-content">
 
-      <span style="font-weight: 700; color: #1E1B4B; white-space: nowrap;">⏰ ปิดรับ:</span>
-      <input type="datetime-local" id="hwDeadline">
+      <!-- กล่องเลือกรายวิชาหลักด้านบน -->
+      <section class="course-selector-banner">
+        <div class="csb-left">
+          <div class="csb-icon">📚</div>
+          <div class="csb-controls">
+            <div class="csb-label-row">
+              <span class="csb-tag">เลือกรายวิชาที่กำลังสอน</span>
+              <span class="csb-sub-desc" id="adminCourseSubtitle">กำลังโหลดข้อมูลรายวิชา...</span>
+            </div>
+            <select id="adminCourseSelect" class="main-course-dropdown" onchange="syncCourseSelection(this.value)"></select>
+          </div>
+        </div>
 
-      <button class="btn-save-drive" onclick="saveAssignmentSettings()">💾 บันทึก</button>
-      <button class="btn-reset-drive" onclick="resetAssignmentInputs()">🔄 รีเซ็ต</button>
-      <span style="font-size: 0.76rem; color: #94A3B8;">* เมื่อหมดเวลา หน้าเว็บจะล็อกไม่ให้นักศึกษาส่งไฟล์ทันที</span>
-    </div>
+        <div class="csb-right">
+          <div class="ready-badge">
+            <span class="ready-check">✔</span>
+            <span class="ready-text">ระบบเช็คชื่อ & บันทึกคะแนนพร้อมใช้งาน</span>
+          </div>
+        </div>
+      </section>
 
-    <!-- การ์ด 4 สถิติแนวนอน -->
-    <div class="stats-row">
-      <div class="stat-card stat-card-1">
-        <div class="stat-card-title">นักศึกษาทั้งหมด</div>
-        <div class="stat-card-val"><span id="statTotalStudents">0</span> <span style="font-size: 1.1rem; font-weight: 600;">คน</span></div>
+      <!-- 📖 กล่องแสดงรายละเอียดข้อมูลห้องเรียนและเวลาของวิชาที่เลือก -->
+      <section class="course-info-banner">
+        <div class="cib-main">
+          <div class="cib-badge">📖 รายละเอียดวิชาที่เลือก</div>
+          <h2 id="dispCourseTitle" class="cib-title">กำลังดึงข้อมูลรายวิชา...</h2>
+          <div class="cib-tags">
+            <span class="cib-pill" id="dispCourseSec">📌 ตอนเรียน: -</span>
+            <span class="cib-pill" id="dispCourseRoom">🚪 ห้องเรียน: -</span>
+            <span class="cib-pill" id="dispCourseDayTime">⏰ วัน-เวลา: -</span>
+            <span class="cib-pill cib-pill-highlight" id="dispCourseRosterCount">👥 นักศึกษา: 0 คน</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- TAB 1: DASHBOARD หน้าหลัก (รายชื่อ & บันทึกคะแนน) -->
+      <!-- ============================================== -->
+      <div id="tabDashboardView" class="main-tab-content active-tab">
+        
+        <!-- กล่องตั้งค่าโฟลเดอร์ Google Drive รับงาน -->
+        <section class="content-card hw-config-card" id="hwSection">
+          <div class="hw-grid">
+            <div class="form-field">
+              <label for="hwFolderUrl">📁 ลิงก์ Google Drive โฟลเดอร์รับงานสัปดาห์นี้:</label>
+              <input type="url" id="hwFolderUrl" class="custom-input" placeholder="https://drive.google.com/drive/folders/...">
+            </div>
+            <div class="form-field">
+              <label for="hwDeadline">⏰ วันและเวลากำหนดส่ง (Deadline):</label>
+              <input type="datetime-local" id="hwDeadline" class="custom-input">
+            </div>
+            <button type="button" class="btn-cyan-gradient btn-full-mobile" onclick="saveAssignmentSettings()">💾 บันทึกกำหนดการบ้าน</button>
+          </div>
+        </section>
+
+        <!-- Grid สถิติ 4 ช่อง -->
+        <section class="stats-row">
+          <div class="stat-box grad-blue">
+            <div class="stat-header">
+              <span class="stat-lbl">นักศึกษาทั้งหมด</span>
+              <span class="stat-badge">Total</span>
+            </div>
+            <div class="stat-val" id="statTotalStudents">0</div>
+            <div class="stat-sub">ลงทะเบียนในวิชานี้</div>
+          </div>
+
+          <div class="stat-box grad-sky">
+            <div class="stat-header">
+              <span class="stat-lbl">เข้าเรียนตรงเวลา</span>
+              <span class="stat-badge">Present</span>
+            </div>
+            <div class="stat-val text-cyan" id="statPresent">0</div>
+            <div class="stat-sub">เช็คอินรอบปกติ (100 แต้ม)</div>
+          </div>
+
+          <div class="stat-box grad-amber">
+            <div class="stat-header">
+              <span class="stat-lbl">มาสาย</span>
+              <span class="stat-badge">Late</span>
+            </div>
+            <div class="stat-val text-amber" id="statLate">0</div>
+            <div class="stat-sub">เกินกำหนดเวลาเข้าเรียน</div>
+          </div>
+
+          <div class="stat-box grad-purple">
+            <div class="stat-header">
+              <span class="stat-lbl">ส่งการบ้านแล้ว</span>
+              <span class="stat-badge">HW</span>
+            </div>
+            <div class="stat-val text-purple">
+              <span id="statSubmitted">0</span>/<span id="statSubTotal">0</span>
+            </div>
+            <div class="stat-sub">อัปโหลดไฟล์เรียบร้อย</div>
+          </div>
+        </section>
+
+        <!-- Top 5 Leaderboard -->
+        <section class="top-rank-wrapper">
+          <div class="section-title-sm">🏆 5 อันดับคะแนนรวมสูงสุดประจำสัปดาห์</div>
+          <div class="top-rank-container" id="topRankGrid"></div>
+        </section>
+
+        <!-- ตารางรายชื่อนักศึกษา & ช่องบันทึกคะแนน -->
+        <section class="content-card" id="tableSection">
+          <div class="table-card-header">
+            <div class="table-title-group">
+              <div class="table-title">
+                <span class="title-bullet"></span>
+                <h3>ชั้นเรียน & บันทึกคะแนน</h3>
+              </div>
+              <div class="classroom-period-controls">
+                <div class="session-dropdown-badge">
+                  <select id="sessionSelect" onchange="onAdminSessionChange()"></select>
+                </div>
+                <div class="late-threshold-pill" title="กำหนดเวลาตัดสายสำหรับการเช็คชื่อ">
+                  <span class="lt-icon">⏰</span>
+                  <span class="lt-label">ตัดสาย:</span>
+                  <input type="time" id="lateThresholdInput" class="late-threshold-input" value="10:45" onchange="saveLateThresholdTime(this.value)">
+                </div>
+                <div class="semester-pill">
+                  <span>ภาคเรียนที่ 1/2569</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="table-actions">
+              <div class="inline-search-box">
+                <span>🔍</span>
+                <input type="text" id="adminStudentSearch" placeholder="ค้นหา รหัส, ชื่อนักศึกษา..." onkeyup="filterStudentTable()">
+              </div>
+
+              <div class="filter-tab-bar">
+                <button type="button" class="ft-btn active" onclick="setTableFilter('ALL', this)">ทั้งหมด (<span id="countAll">0</span>)</button>
+                <button type="button" class="ft-btn" onclick="setTableFilter('NOT_SUBMITTED', this)">ยังไม่ส่งงาน</button>
+                <button type="button" class="ft-btn" onclick="setTableFilter('ABSENT', this)">ขาดเรียน</button>
+                <button type="button" class="ft-btn" onclick="setTableFilter('LEAVE', this)">ลาเรียน</button>
+              </div>
+              <button type="button" class="btn-cyan-gradient" onclick="exportAttendanceToCSV()">📥 บันทึก CSV</button>
+            </div>
+          </div>
+
+          <div class="table-scroll-area">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="min-width: 50px;">อันดับ</th>
+                  <th style="min-width: 105px;">รหัส</th>
+                  <th style="min-width: 160px;">ชื่อ - นามสกุล</th>
+                  <th style="min-width: 100px;">สถานะเช็คชื่อ</th>
+                  <th style="min-width: 90px; text-align: center;" title="คะแนนการเข้าชั้นเรียน">🎯 เข้าเรียน</th>
+                  <th style="min-width: 90px; text-align: center;" title="คะแนนควิซ/แบบทดสอบ">📝 ควิซ</th>
+                  <th style="min-width: 90px; text-align: center;" title="คะแนนการบ้าน/ชิ้นงาน">📁 การบ้าน</th>
+                  <th style="min-width: 90px; text-align: center;" title="คะแนนรวมของสัปดาห์นี้">⭐ รวม</th>
+                  <th style="min-width: 95px;">สถานะงาน</th>
+                  <th style="min-width: 105px;">ไฟล์ชิ้นงาน</th>
+                  <th style="min-width: 110px;">IP Address</th>
+                </tr>
+              </thead>
+              <tbody id="adminTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
       </div>
-      <div class="stat-card stat-card-2">
-        <div class="stat-card-title">เข้าเรียนตรงเวลา</div>
-        <div class="stat-card-val"><span id="statPresent">0</span> <span style="font-size: 1.1rem; font-weight: 600;">คน</span></div>
-      </div>
-      <div class="stat-card stat-card-3">
-        <div class="stat-card-title">มาสาย</div>
-        <div class="stat-card-val"><span id="statLate">0</span> <span style="font-size: 1.1rem; font-weight: 600;">คน</span></div>
-      </div>
-      <div class="stat-card stat-card-4">
-        <div class="stat-card-title">ส่งการบ้านแล้ว</div>
-        <div class="stat-card-val"><span id="statSubmitted">0</span>/<span id="statSubTotal">0</span></div>
-      </div>
-    </div>
 
-    <!-- ส่วน Top 1 - 5 ประจำคาบ -->
-    <div class="top-section-header">
-      <div class="top-title">🏆 อันดับคะแนนสูงสุดประจำคาบ (Top 1 - 5)</div>
-      <a href="javascript:void(0)" onclick="openOverviewModal()" style="font-size: 0.82rem; color: #4338CA; font-weight: 700; text-decoration: none;">ดูตารางคะแนนทั้งหมด →</a>
-    </div>
-    <div class="top-grid" id="topRankGrid"></div>
+      <!-- ============================================== -->
+      <!-- TAB 2: QUIZ MANAGER แท็บจัดการควิซ & คลังหลักฐาน -->
+      <!-- ============================================== -->
+      <div id="tabQuizView" class="main-tab-content">
+        <section class="content-card quiz-manager-card">
+          <div class="quiz-header-bar">
+            <div>
+              <div class="quiz-main-title">
+                <span class="title-bullet"></span>
+                <h3>จัดการชุดคำถามควิซประจำสัปดาห์</h3>
+              </div>
+              <p class="quiz-sub-desc">ตั้งค่าคำถามควิซสำหรับ <strong id="quizActiveWeekLabel" class="text-primary-blue">Week 1</strong> (ระบบจะบันทึกเก็บไว้เป็นหลักฐานย้อนหลัง)</p>
+            </div>
 
-    <!-- แถบกรองสถานะ และ หมายเหตุ -->
-    <div class="filter-bar">
-      <div class="filter-buttons">
-        <button class="f-btn active" onclick="setTableFilter('ALL', this)">ทั้งหมด (<span id="countAll">0</span>)</button>
-        <button class="f-btn" onclick="setTableFilter('NOT_SUBMITTED', this)">⚠️ ยังไม่ส่งการบ้าน</button>
-        <button class="f-btn" onclick="setTableFilter('ABSENT', this)">❌ ขาดเรียน</button>
-        <button class="f-btn" onclick="setTableFilter('LEAVE', this)">🏥 ลาเรียน</button>
+            <div class="quiz-status-toggle-box">
+              <label class="switch-lbl" for="quizActiveToggle">
+                <input type="checkbox" id="quizActiveToggle" onchange="toggleQuizActiveState(this.checked)">
+                <span class="switch-slider"></span>
+              </label>
+              <div class="toggle-status-text">
+                <span id="quizToggleLabel">สถานะ: <strong>ปิดควิซอยู่</strong></span>
+                <small>เมื่อเปิด นักศึกษาที่เช็คชื่อแล้วจะเข้าสู่หน้าทำควิซทันที</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="quiz-meta-bar">
+            <div class="form-field">
+              <label for="quizTimeLimit">⏱️ เวลาในการทำควิซ (วินาที/ข้อ):</label>
+              <input type="number" id="quizTimeLimit" class="custom-input" value="60" min="10" max="600">
+            </div>
+            <div class="form-field">
+              <label for="quizTotalPoints">🎯 คะแนนเต็มควิซรอบนี้:</label>
+              <input type="number" id="quizTotalPoints" class="custom-input" value="100" min="1">
+            </div>
+            <div class="quiz-meta-action">
+              <button type="button" class="btn-cyan-gradient" onclick="addNewQuestion()">➕ เพิ่มข้อคำถาม</button>
+              <button type="button" class="btn-save-quiz" onclick="saveQuizSettings()">💾 บันทึกชุดควิซนี้</button>
+            </div>
+          </div>
+
+          <div id="quizQuestionsContainer" class="quiz-questions-list"></div>
+        </section>
+
+        <section class="content-card" style="margin-top: 1.25rem;">
+          <div class="table-card-header">
+            <div class="table-title">
+              <span class="title-bullet"></span>
+              <h3>📋 ตารางหลักฐานและผลการตอบควิซของนักศึกษา</h3>
+            </div>
+            <div class="table-actions">
+              <button type="button" class="btn-cyan-gradient" onclick="exportQuizSubmissionsCSV()">📥 ส่งออกหลักฐานควิซ (CSV)</button>
+            </div>
+          </div>
+
+          <div class="table-scroll-area">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="min-width: 50px;">ลำดับ</th>
+                  <th style="min-width: 110px;">รหัสนักศึกษา</th>
+                  <th style="min-width: 160px;">ชื่อ - นามสกุล</th>
+                  <th style="min-width: 90px; text-align: center;">คะแนนที่ได้</th>
+                  <th style="min-width: 120px;">เวลาที่ส่งคำตอบ</th>
+                  <th style="min-width: 110px;">IP Address</th>
+                  <th style="min-width: 100px; text-align: center;">หลักฐานคำตอบ</th>
+                </tr>
+              </thead>
+              <tbody id="quizSubmissionsTableBody"></tbody>
+            </table>
+          </div>
+        </section>
       </div>
-      <div style="font-size: 0.78rem; color: #64748B;">* คลิกที่ป้ายสถานะของนักศึกษาเพื่อเปลี่ยนเป็น "ลาเรียน" ได้ทันที</div>
-    </div>
 
-    <!-- ตารางรายชื่อนักศึกษา -->
-    <div class="table-card">
-      <table class="main-table">
-        <thead>
-          <tr>
-            <th style="width: 5%;">อันดับ</th>
-            <th style="width: 10%;">รหัส</th>
-            <th style="width: 18%;">ชื่อ - นามสกุล</th>
-            <th style="width: 10%;">สถานะเช็คชื่อ</th>
-            <th style="width: 9%;">เวลาเข้าห้อง</th>
-            <th style="width: 9%;">เวลาส่งงาน</th>
-            <th style="width: 8%;">คะแนนควิซ</th>
-            <th style="width: 10%;">สถานะการบ้าน</th>
-            <th style="width: 10%;">ไฟล์ชิ้นงาน</th>
-            <th style="width: 11%;">IP Address</th>
-          </tr>
-        </thead>
-        <tbody id="adminTableBody"></tbody>
-      </table>
-    </div>
+      <!-- ============================================== -->
+      <!-- TAB 3: LOCATION MANAGER แท็บจัดการพิกัดตำแหน่ง (GPS Lock) -->
+      <!-- ============================================== -->
+      <div id="tabLocationView" class="main-tab-content">
+        <section class="content-card location-manager-card">
+          <div class="quiz-header-bar">
+            <div>
+              <div class="quiz-main-title">
+                <span class="title-bullet"></span>
+                <h3>📍 ตั้งค่าขอบเขตตำแหน่งห้องเรียน (GPS Location Lock)</h3>
+              </div>
+              <p class="quiz-sub-desc">กำหนดพิกัดละติจูด ลองจิจูด และรัศมีการเช็คชื่อ เพื่อบังคับให้นักศึกษาต้องอยู่ในห้องเรียนจึงจะเช็คชื่อได้</p>
+            </div>
+
+            <div class="quiz-status-toggle-box">
+              <label class="switch-lbl" for="locActiveToggle">
+                <input type="checkbox" id="locActiveToggle" onchange="toggleLocationLockState(this.checked)">
+                <span class="switch-slider"></span>
+              </label>
+              <div class="toggle-status-text">
+                <span id="locToggleLabel">สถานะ: <strong>ปิดล็อกพิกัด</strong></span>
+                <small>เปิดใช้งานเพื่อบังคับตรวจจับ GPS นักศึกษา</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="location-form-grid" style="padding: 1.5rem 0;">
+            <div class="form-field">
+              <label for="locLatitude">🌐 ละติจูด (Latitude):</label>
+              <input type="number" step="any" id="locLatitude" class="custom-input" placeholder="เช่น 7.891234">
+            </div>
+
+            <div class="form-field">
+              <label for="locLongitude">🌐 ลองจิจูด (Longitude):</label>
+              <input type="number" step="any" id="locLongitude" class="custom-input" placeholder="เช่น 98.351234">
+            </div>
+
+            <div class="form-field">
+              <label for="locRadius">⭕ รัศมีที่อนุญาต (เมตร):</label>
+              <input type="number" id="locRadius" class="custom-input" value="50" min="5" max="1000" placeholder="เช่น 50">
+            </div>
+          </div>
+
+          <div class="location-action-bar" style="display: flex; gap: 1rem; align-items: center; border-top: 1px dashed var(--border-light); padding-top: 1.25rem;">
+            <button type="button" class="btn-cyan-gradient" onclick="getCurrentGpsLocation()">🎯 ดึงพิกัดจากตำแหน่งปัจจุบันของฉัน</button>
+            <button type="button" class="btn-save-quiz" onclick="saveLocationLockSettings()">💾 บันทึกตั้งค่าพิกัดห้องเรียน</button>
+          </div>
+        </section>
+      </div>
+
+    </main>
   </div>
 
-  <!-- MODAL 1: ปรับสถานะการเข้าเรียน และ รีเซ็ตการส่งการบ้านรายบุคคล -->
-  <div id="attendanceStatusModal" class="modal-overlay">
-    <div class="modal-box" style="max-width: 480px; padding: 2rem;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem;">
-        <h3 style="margin: 0; font-size: 1.3rem; color: #1E1B4B; font-weight: 800;">✏️ ข้อมูลนักศึกษารายบุคคล</h3>
-        <button onclick="closeStatusModal()" style="background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #64748B;">✕</button>
+  <!-- MODALS -->
+  <div id="attendanceStatusModal" class="modal-backdrop">
+    <div class="modal-card modal-compact">
+      <div class="modal-head">
+        <h4>✏️ ปรับสถานะนักศึกษา</h4>
+        <button type="button" class="modal-x" onclick="closeStatusModal()">✕</button>
       </div>
 
-      <div style="margin-bottom: 1.2rem; background: #F8FAFC; padding: 0.8rem 1rem; border-radius: 14px; border: 1px solid #E2E8F0;">
-        <div style="font-size: 0.82rem; font-weight: 600; color: #64748B; margin-bottom: 0.2rem;">นักศึกษา:</div>
-        <div id="modalStudentName" style="font-size: 1.15rem; font-weight: 800; color: #1E1B4B;">-</div>
-        <div id="modalStudentId" style="font-size: 0.88rem; font-weight: 700; color: #4338CA; margin-top: 0.2rem;">-</div>
+      <div class="student-focus-box">
+        <span class="sf-lbl">นักศึกษาที่เลือก:</span>
+        <div id="modalStudentName" class="sf-name">-</div>
       </div>
 
-      <div style="margin-bottom: 1.5rem;">
-        <label style="font-size: 0.9rem; font-weight: 700; color: #1E1B4B; display: block; margin-bottom: 0.4rem;">เลือกสถานะการเข้าเรียน:</label>
-        <select id="modalStatusSelect" class="meta-select" style="height: 48px; font-size: 0.95rem; border-radius: 14px;">
+      <div class="form-field mb-3">
+        <label for="modalStatusSelect">สถานะการเข้าเรียน:</label>
+        <select id="modalStatusSelect" class="custom-input">
           <option value="PRESENT">✅ เข้าเรียนตรงเวลา (Present)</option>
           <option value="LATE">🟡 มาสาย (Late)</option>
           <option value="LEAVE">🏥 ลาเรียน (Leave)</option>
@@ -146,127 +425,114 @@
         </select>
       </div>
 
-      <!-- ปุ่มรีเซ็ตการส่งการบ้านเฉพาะคนนี้ -->
-      <div style="margin-bottom: 1.5rem; padding-top: 1rem; border-top: 1px dashed #E2E8F0;">
-        <label style="font-size: 0.85rem; font-weight: 700; color: #64748B; display: block; margin-bottom: 0.4rem;">จัดการงานที่ส่ง:</label>
-        <button type="button" onclick="confirmResetStudentSubmission()" style="width: 100%; padding: 0.65rem; border-radius: 12px; border: 1.5px solid #FECACA; background: #FEF2F2; color: #DC2626; font-weight: 700; font-family: var(--font-main); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.4rem; font-size: 0.88rem;">
-          🔄 รีเซ็ตการส่งการบ้าน
+      <div class="reset-wrapper">
+        <button type="button" class="btn-outline-danger" onclick="confirmResetStudentSubmission()">
+          🔄 รีเซ็ตการส่งงาน (เปิดให้นักศึกษาส่งใหม่ได้)
         </button>
       </div>
 
-      <div style="display: flex; justify-content: flex-end; gap: 0.8rem;">
-        <button type="button" onclick="closeStatusModal()" style="padding: 0.65rem 1.4rem; border-radius: 9999px; border: 1.5px solid #CBD5E1; background: white; font-weight: 700; font-family: var(--font-main); cursor: pointer; color: #475569;">ยกเลิก</button>
-        <button type="button" onclick="confirmSaveStatus()" style="padding: 0.65rem 1.6rem; border-radius: 9999px; border: none; background: #4338CA; color: white; font-weight: 700; font-family: var(--font-main); cursor: pointer; box-shadow: 0 4px 15px rgba(67, 56, 202, 0.3);">บันทึกสถานะ 💾</button>
+      <div class="modal-actions-bar">
+        <button type="button" class="btn-subtle" onclick="closeStatusModal()">ยกเลิก</button>
+        <button type="button" class="btn-cyan-gradient" onclick="confirmSaveStatus()">บันทึกการเปลี่ยนแปลง</button>
       </div>
     </div>
   </div>
 
-  <!-- MODAL 2: ตั้งค่าห้องเรียน / สลับวิชา / จัดการ Roster -->
-  <div id="settingsModal" class="modal-overlay">
-    <div class="modal-box">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.3rem;">
-        <h3 style="margin: 0; font-size: 1.25rem; color: #1E1B4B; font-weight: 800;">⚙️ ตั้งค่าห้องเรียน & รายชื่อนักศึกษา</h3>
-        <button onclick="closeSettingsModal()" style="background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #64748B;">✕</button>
+  <div id="overviewModal" class="modal-backdrop">
+    <div class="modal-card modal-wide">
+      <div class="modal-head">
+        <h4>📊 ภาพรวมการเข้าเรียนและคะแนนตลอดภาคเรียน</h4>
+        <button type="button" class="modal-x" onclick="closeOverviewModal()">✕</button>
       </div>
-
-      <!-- สลับวิชา -->
-      <div style="margin-bottom: 1.2rem;">
-        <label style="font-size: 0.85rem; font-weight: 700; color: #1E1B4B; display: block; margin-bottom: 0.4rem;">เลือกสลับวิชาที่สอน:</label>
-        <select id="adminCourseSelect" onchange="onAdminCourseChange()" style="width: 100%; padding: 0.75rem 1rem; border-radius: 14px; border: 1.5px solid #CBD5E1; font-family: var(--font-main); font-weight: 700; font-size: 0.92rem; outline: none;"></select>
-      </div>
-
-      <!-- กล่อง 4 ช่องข้อมูลห้องเรียน -->
-      <div class="course-meta-grid">
-        <div class="meta-field">
-          <label>Sec</label>
-          <input type="text" id="courseSectionInput" placeholder="เช่น 4">
-        </div>
-        <div class="meta-field">
-          <label>ห้องเรียน</label>
-          <input type="text" id="courseRoomInput" placeholder="เช่น 6310">
-        </div>
-        <div class="meta-field">
-          <label>วัน</label>
-          <select id="courseDaySelect" class="meta-select">
-            <option value="จันทร์">จันทร์</option>
-            <option value="อังคาร">อังคาร</option>
-            <option value="พุธ">พุธ</option>
-            <option value="พฤหัสบดี">พฤหัสบดี</option>
-            <option value="ศุกร์">ศุกร์</option>
-            <option value="เสาร์">เสาร์</option>
-            <option value="อาทิตย์">อาทิตย์</option>
-          </select>
-        </div>
-        <div class="meta-field">
-          <label>เวลา</label>
-          <input type="text" id="courseTimeInput" placeholder="เช่น 10.30 - 12.30">
-        </div>
-      </div>
-
-      <button onclick="saveCourseMetadata()" style="width: 100%; padding: 0.75rem; border-radius: 9999px; border: none; background: #4338CA; color: white; font-weight: 700; cursor: pointer; font-family: var(--font-main); font-size: 0.95rem; margin-bottom: 1.5rem; box-shadow: 0 4px 15px rgba(67, 56, 202, 0.25);">
-        บันทึกข้อมูลห้องเรียน
-      </button>
-
-      <hr style="border: none; border-top: 1px solid #EEF2F6; margin: 1.2rem 0;">
-
-      <!-- จัดการรายชื่อนักศึกษา -->
-      <h4 style="margin: 0 0 0.8rem 0; color: #1E1B4B; font-size: 1rem; font-weight: 800;">👥 จัดการรายชื่อนักศึกษา (Roster)</h4>
-      <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
-        <input type="text" id="newStudentId" placeholder="รหัสนักศึกษา (10 หลัก)" style="width: 38%; padding: 0.6rem 0.8rem; border-radius: 12px; border: 1.5px solid #CBD5E1; font-family: var(--font-main); font-size: 0.88rem; outline: none;">
-        <input type="text" id="newStudentName" placeholder="ชื่อ - นามสกุล" style="flex: 1; padding: 0.6rem 0.8rem; border-radius: 12px; border: 1.5px solid #CBD5E1; font-family: var(--font-main); font-size: 0.88rem; outline: none;">
-        <button onclick="addSingleStudent()" style="padding: 0.6rem 1.1rem; border-radius: 9999px; border: none; background: #10B981; color: white; font-weight: 700; cursor: pointer; font-family: var(--font-main);">+ เพิ่ม</button>
-      </div>
-
-      <div id="rosterListContainer" style="max-height: 250px; overflow-y: auto; border: 1.5px solid #F1F5F9; border-radius: 14px; padding: 0.6rem; background: #F8FAFC;"></div>
+      <div id="termOverviewTableContainer" class="table-scroll-area"></div>
     </div>
   </div>
 
-  <!-- MODAL 3: ตารางคะแนนเต็มทั้งภาคการศึกษา -->
-  <div id="overviewModal" class="modal-overlay">
-    <div class="modal-box" style="max-width: 900px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem;">
-        <h3 style="margin: 0; font-size: 1.25rem; color: #1E1B4B; font-weight: 800;">📊 ภาพรวมการเข้าเรียน & คะแนนทั้งภาคการศึกษา</h3>
-        <button onclick="closeOverviewModal()" style="background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #64748B;">✕</button>
+  <div id="quizEvidenceModal" class="modal-backdrop">
+    <div class="modal-card modal-wide">
+      <div class="modal-head">
+        <h4>🔍 หลักฐานการตอบควิซรายบุคคล</h4>
+        <button type="button" class="modal-x" onclick="closeQuizEvidenceModal()">✕</button>
       </div>
-      <div id="termOverviewTableContainer" style="overflow-x: auto;"></div>
+      <div class="student-focus-box">
+        <span class="sf-lbl">ผู้ส่งคำตอบ:</span>
+        <div class="sf-name" id="quizEvidenceStudentName">-</div>
+      </div>
+      <div id="quizEvidenceDetailContainer" class="quiz-evidence-list"></div>
+      <div class="modal-actions-bar" style="margin-top: 1rem;">
+        <button type="button" class="btn-subtle" onclick="closeQuizEvidenceModal()">ปิดหน้าต่าง</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settingsModal" class="modal-backdrop">
+    <div class="modal-card modal-wide">
+      <div class="modal-head">
+        <h4>⚙️ ตั้งค่าข้อมูลวิชาและนำเข้ารายชื่อนักศึกษา</h4>
+        <button type="button" class="modal-x" onclick="closeSettingsModal()">✕</button>
+      </div>
+
+      <div class="settings-two-col">
+        <div class="settings-col">
+          <h5 class="sub-col-title">รายละเอียดห้องเรียน</h5>
+          <div class="form-field mb-2">
+            <label for="courseSectionInput">กลุ่มเรียน (Section):</label>
+            <input type="text" id="courseSectionInput" class="custom-input" placeholder="เช่น 01">
+          </div>
+          <div class="form-field mb-2">
+            <label for="courseRoomInput">ห้องเรียน:</label>
+            <input type="text" id="courseRoomInput" class="custom-input" placeholder="เช่น 5304">
+          </div>
+          <div class="form-field mb-2">
+            <label for="courseDaySelect">วันเรียน:</label>
+            <select id="courseDaySelect" class="custom-input">
+              <option value="วันจันทร์">วันจันทร์</option>
+              <option value="วันอังคาร">วันอังคาร</option>
+              <option value="วันพุธ">วันพุธ</option>
+              <option value="วันพฤหัสบดี">วันพฤหัสบดี</option>
+              <option value="วันศุกร์">วันศุกร์</option>
+              <option value="วันเสาร์">วันเสาร์</option>
+              <option value="วันอาทิตย์">วันอาทิตย์</option>
+            </select>
+          </div>
+          <div class="form-field mb-3">
+            <label for="courseTimeInput">ช่วงเวลาเรียน:</label>
+            <input type="text" id="courseTimeInput" class="custom-input" placeholder="เช่น 09:00 - 12:00">
+          </div>
+          <button type="button" class="btn-cyan-gradient" onclick="saveCourseMetadata()">💾 บันทึกข้อมูลห้อง</button>
+        </div>
+
+        <div class="settings-col">
+          <h5 class="sub-col-title">รายชื่อนักศึกษาในวิชา (<span id="rosterCount">0</span> คน)</h5>
+          <div class="excel-uploader" id="excelDropZone" onclick="document.getElementById('excelFileInput').click()">
+            <div class="u-icon">📊</div>
+            <div class="u-title">ลากไฟล์ Excel / CSV มาวางที่นี่</div>
+            <div class="u-sub">รองรับ .xlsx, .xls, .csv (ระบบกวาดรหัสและชื่ออัตโนมัติ)</div>
+            <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" style="display:none;" onchange="handleExcelUpload(this.files[0])">
+          </div>
+
+          <div class="roster-single-add">
+            <input type="text" id="newStudentId" class="custom-input flex-1" placeholder="รหัส">
+            <input type="text" id="newStudentName" class="custom-input flex-2" placeholder="ชื่อ-นามสกุล">
+            <button type="button" class="btn-cyan-gradient" onclick="addSingleStudent()">เพิ่ม</button>
+          </div>
+
+          <div id="rosterListContainer" class="roster-scroll-box"></div>
+        </div>
+      </div>
     </div>
   </div>
 
   <script src="js/config.js"></script>
   <script src="js/admin.js"></script>
   <script>
-    function checkAuthOnLoad() {
-      if (sessionStorage.getItem("adminAuthenticated") === "true") {
-        document.getElementById('adminAuthOverlay').style.display = 'none';
-        document.getElementById('adminBody').style.display = 'block';
-      } else {
-        document.getElementById('adminAuthOverlay').style.display = 'flex';
-        document.getElementById('adminBody').style.display = 'block';
-        document.getElementById('adminPasswordInput').focus();
+    function scrollToSection(id) {
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+      if (window.innerWidth <= 992) {
+        toggleSidebar(false);
       }
     }
-
-    function unlockAdminDashboard() {
-      const inputPass = document.getElementById('adminPasswordInput').value.trim();
-      const correctPass = (typeof CONFIG !== 'undefined' && CONFIG.TEACHER_PASSWORD) ? CONFIG.TEACHER_PASSWORD : 'psu';
-
-      if (inputPass === correctPass) {
-        sessionStorage.setItem("adminAuthenticated", "true");
-        document.getElementById('adminAuthOverlay').style.display = 'none';
-        if (typeof initAdminDashboard === 'function') initAdminDashboard();
-      } else {
-        alert("❌ รหัสผ่านอาจารย์ไม่ถูกต้อง");
-        document.getElementById('adminPasswordInput').value = '';
-        document.getElementById('adminPasswordInput').focus();
-      }
-    }
-
-    function openSettingsModal() { document.getElementById('settingsModal').style.display = 'flex'; }
-    function closeSettingsModal() { document.getElementById('settingsModal').style.display = 'none'; }
-    function openOverviewModal() { document.getElementById('overviewModal').style.display = 'flex'; }
-    function closeOverviewModal() { document.getElementById('overviewModal').style.display = 'none'; }
-
-    document.addEventListener("DOMContentLoaded", checkAuthOnLoad);
   </script>
 </body>
 </html>
