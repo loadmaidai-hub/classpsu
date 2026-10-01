@@ -38,6 +38,9 @@ let currentLocationLockConfig = {
   radius: 50
 };
 
+// ข้อมูลแคชของโปรเจกต์กลุ่ม
+let currentProjectsData = {};
+
 document.addEventListener("DOMContentLoaded", () => {
   if (!sessionStorage.getItem("adminAuthenticated")) {
     sessionStorage.setItem("adminAuthenticated", "true");
@@ -47,9 +50,10 @@ document.addEventListener("DOMContentLoaded", () => {
   setupKeyboardShortcuts();
   setupExcelDragDrop();
   setupNetworkWatcher();
+  initProjectMembersForm(); // เริ่มต้นฟอร์มสมาชิก 2 ช่อง
 });
 
-// ฟังก์ชันสลับแท็บ
+// ฟังก์ชันสลับแท็บหลัก
 function switchMainTab(tabId, navBtn) {
   document.querySelectorAll('.main-tab-content').forEach(el => el.classList.remove('active-tab'));
   document.querySelectorAll('.sidebar-scroll .nav-link').forEach(el => el.classList.remove('active'));
@@ -69,10 +73,19 @@ function switchMainTab(tabId, navBtn) {
     if (lTab) lTab.classList.add('active-tab');
     if (titleEl) titleEl.innerText = 'จัดการตำแหน่ง (GPS Lock)';
     loadLocationLockSettings();
+  } else if (tabId === 'pairProjectManager') {
+    const pTab = document.getElementById('tabPairProjectView');
+    if (pTab) pTab.classList.add('active-tab');
+    if (titleEl) titleEl.innerText = 'จัดการโครงงานกลุ่ม (Project Management)';
+    loadPairProjectsData();
+  } else if (tabId === 'classManager') {
+    const cTab = document.getElementById('tabClassManagerView');
+    if (cTab) cTab.classList.add('active-tab');
+    if (titleEl) titleEl.innerText = 'ชั้นเรียน & บันทึกคะแนน';
   } else {
     const dTab = document.getElementById('tabDashboardView');
     if (dTab) dTab.classList.add('active-tab');
-    if (titleEl) titleEl.innerText = 'ระบบจัดการชั้นเรียน';
+    if (titleEl) titleEl.innerText = 'หน้าหลัก';
   }
 
   if (window.innerWidth <= 992) {
@@ -255,24 +268,16 @@ function onAdminCourseChange() {
   };
 
   activeRoster = course.roster || {};
-  const rosterTotal = Object.keys(activeRoster).length;
 
   const subEl = document.getElementById('adminCourseSubtitle');
   if (subEl) {
     subEl.innerText = `${course.courseId || activeCourseId} | ${course.section || 'Sec 01'} (ห้อง ${course.room || '-'})`;
   }
 
-  const titleEl = document.getElementById('dispCourseTitle');
-  const secEl = document.getElementById('dispCourseSec');
-  const roomEl = document.getElementById('dispCourseRoom');
-  const dayTimeEl = document.getElementById('dispCourseDayTime');
-  const countEl = document.getElementById('dispCourseRosterCount');
-
-  if (titleEl) titleEl.innerText = `${course.courseId || activeCourseId} - ${course.courseName || 'USES OF ARTIFICIAL INTELLIGENCE IN DAILY LIFE'}`;
-  if (secEl) secEl.innerText = `📌 ตอนเรียน: ${course.section || 'Sec 01'}`;
-  if (roomEl) roomEl.innerText = `🚪 ห้องเรียน: ${course.room || '5304'}`;
-  if (dayTimeEl) dayTimeEl.innerText = `⏰ วัน-เวลา: ${course.dayTime || (course.day ? `${course.day} ${course.time || ''}` : 'วันอังคาร 13:30 - 16:30')}`;
-  if (countEl) countEl.innerText = `👥 นักศึกษา: ${rosterTotal} คน`;
+  const courseSubCardName = document.getElementById('cardSubCourseName');
+  if (courseSubCardName) {
+    courseSubCardName.innerText = `${course.courseId || activeCourseId} (${course.section || 'Sec 01'})`;
+  }
 
   const secInput = document.getElementById('courseSectionInput');
   const roomInput = document.getElementById('courseRoomInput');
@@ -297,6 +302,7 @@ function onAdminCourseChange() {
   loadQuizSettings();
   loadQuizSubmissions();
   loadLocationLockSettings();
+  loadPairProjectsData();
   renderStudentRosterManager();
   loadAllAttendanceForOverview();
 }
@@ -316,7 +322,6 @@ function onAdminSessionChange() {
   loadQuizSubmissions();
 }
 
-// โหลดเวลาตัดสายประจำสัปดาห์
 function loadLateThresholdTime() {
   const input = document.getElementById('lateThresholdInput');
   if (!input) return;
@@ -473,6 +478,312 @@ function saveLocationLockSettings() {
     .catch(() => setSystemStatus(false));
 }
 
+// -------------------------------------------------------------
+// --- DYNAMIC PROJECT MEMBERS LOGIC (จัดการโครงงานกลุ่ม) ---
+// -------------------------------------------------------------
+
+function initProjectMembersForm() {
+  const container = document.getElementById('projectMembersContainer');
+  if (!container) return;
+  container.innerHTML = '';
+  // สร้างสมาชิกเริ่มต้น 2 ช่อง
+  addProjectMemberField();
+  addProjectMemberField();
+}
+
+function addProjectMemberField(stId = '', stName = '') {
+  const container = document.getElementById('projectMembersContainer');
+  if (!container) return;
+
+  const memberIndex = container.children.length + 1;
+  const box = document.createElement('div');
+  box.className = 'project-member-field-box';
+  box.style.cssText = 'background: white; padding: 1rem; border-radius: 14px; border: 1.5px solid #E2E8F0; position: relative;';
+
+  box.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.4rem;">
+      <label class="member-idx-label" style="font-size: 0.82rem; font-weight: 800; color: #4338CA;">สมาชิกคนที่ ${memberIndex}:</label>
+      ${memberIndex > 1 ? `<button type="button" onclick="removeProjectMemberField(this)" style="background:none; border:none; color:#DC2626; font-size:0.78rem; font-weight:700; cursor:pointer;">✕ ลบคนนี้</button>` : ''}
+    </div>
+    <input type="text" class="custom-input pm-id-input" maxlength="10" placeholder="รหัสนักศึกษา" value="${stId}" oninput="fetchStudentNameForMember(this)" style="margin-bottom: 0.5rem;">
+    <input type="text" class="custom-input pm-name-input" readonly placeholder="ชื่อ-นามสกุลอัตโนมัติ" value="${stName}" style="background: #F8FAFC;">
+  `;
+  container.appendChild(box);
+
+  if (stId && !stName) {
+    const idInput = box.querySelector('.pm-id-input');
+    fetchStudentNameForMember(idInput);
+  }
+}
+
+function removeProjectMemberField(btn) {
+  const box = btn.closest('.project-member-field-box');
+  if (!box) return;
+  box.remove();
+  // อัปเดตตัวเลขลำดับสมาชิกใหม่
+  const container = document.getElementById('projectMembersContainer');
+  Array.from(container.children).forEach((el, idx) => {
+    const lbl = el.querySelector('.member-idx-label');
+    if (lbl) lbl.innerText = `สมาชิกคนที่ ${idx + 1}:`;
+  });
+}
+
+function fetchStudentNameForMember(inputEl) {
+  const box = inputEl.closest('.project-member-field-box');
+  if (!box) return;
+  const nameInput = box.querySelector('.pm-name-input');
+  const stId = inputEl.value.trim();
+
+  if (stId.length >= 8) {
+    if (activeRoster && activeRoster[stId]) {
+      nameInput.value = activeRoster[stId];
+      nameInput.style.color = "#059669";
+    } else {
+      nameInput.value = "ไม่พบรหัสนักศึกษาในรายวิชา";
+      nameInput.style.color = "#DC2626";
+    }
+  } else {
+    nameInput.value = "";
+    nameInput.style.color = "#0F172A";
+  }
+}
+
+function saveProjectGroup() {
+  const container = document.getElementById('projectMembersContainer');
+  const boxes = container ? container.querySelectorAll('.project-member-field-box') : [];
+  const title = document.getElementById('projectTitleInput').value.trim();
+  const editingKey = document.getElementById('editingProjectKey').value;
+
+  let members = [];
+  let hasInvalid = false;
+
+  boxes.forEach((box, idx) => {
+    const idVal = box.querySelector('.pm-id-input').value.trim();
+    const nameVal = box.querySelector('.pm-name-input').value.trim();
+
+    if (idVal) {
+      if (nameVal.includes("ไม่พบ")) {
+        hasInvalid = true;
+      } else {
+        members.push({ id: idVal, name: nameVal || (activeRoster[idVal] || '') });
+      }
+    }
+  });
+
+  if (hasInvalid) {
+    return alert("กรุณาตรวจสอบรหัสนักศึกษาให้ถูกต้อง");
+  }
+
+  if (members.length === 0) {
+    return alert("กรุณาระบุรหัสนักศึกษาอย่างน้อย 1 คน");
+  }
+
+  if (!title) {
+    return alert("กรุณากรอกหัวข้อโครงงาน");
+  }
+
+  if (typeof CONFIG === 'undefined' || !CONFIG.FIREBASE_DB_URL) return;
+
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+  
+  // ใช้ key เดิมถ้ากำลังแก้ไข หรือใช้รหัสนักศึกษาคนแรกเป็น key
+  const groupKey = editingKey || (members[0].id + '_' + Date.now().toString().slice(-4));
+  
+  const payload = {
+    groupKey: groupKey,
+    members: members,
+    projectTitle: title,
+    updatedAt: new Date().toISOString()
+  };
+
+  fetch(`${baseUrl}pair_projects/${activeCourseId}/${groupKey}.json`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  })
+  .then(() => {
+    alert("✅ บันทึกข้อมูลโครงงานกลุ่มเรียบร้อยแล้ว");
+    cancelEditProject();
+    loadPairProjectsData();
+  })
+  .catch(err => {
+    alert("❌ เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+    console.error(err);
+  });
+}
+
+function loadPairProjectsData() {
+  if (typeof CONFIG === 'undefined' || !CONFIG.FIREBASE_DB_URL) return;
+
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+
+  fetch(`${baseUrl}pair_projects/${activeCourseId}.json`)
+    .then(r => r.json())
+    .then(data => {
+      currentProjectsData = data || {};
+      renderProjectsTable(currentProjectsData);
+    })
+    .catch(() => {
+      currentProjectsData = {};
+      renderProjectsTable({});
+    });
+}
+
+function renderProjectsTable(projectsObj) {
+  const tbody = document.getElementById('pairTableBody');
+  if (!tbody) return;
+
+  const keys = Object.keys(projectsObj);
+  tbody.innerHTML = '';
+
+  if (keys.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4" style="text-align:center; padding: 2rem; color: #94A3B8;">
+          ยังไม่มีข้อมูลกลุ่มโครงงานในรายวิชานี้ กรอกฟอร์มด้านบนเพื่อลงทะเบียนกลุ่ม
+        </td>
+      </tr>
+    `;
+    const countEl = document.getElementById('totalPairCount');
+    if (countEl) countEl.innerText = '0';
+    return;
+  }
+
+  keys.forEach((key, groupIdx) => {
+    const p = projectsObj[key];
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = "1px solid #F1F5F9";
+
+    // รองรับทั้งโครงสร้าง members array แบบใหม่ และ member1/2 แบบเดิม
+    let membersList = [];
+    if (p.members && Array.isArray(p.members)) {
+      membersList = p.members;
+    } else {
+      if (p.member1Id) membersList.push({ id: p.member1Id, name: p.member1Name });
+      if (p.member2Id) membersList.push({ id: p.member2Id, name: p.member2Name });
+    }
+
+    // สร้างตารางย่อยแสดงสมาชิกตามตัวอย่างในภาพ
+    let membersHtml = `
+      <div style="background: white; border-radius: 10px; border: 1px solid #EDF2F7; overflow: hidden;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+          <thead>
+            <tr style="background: #F8FAFC; color: #64748B; border-bottom: 1px solid #EDF2F7;">
+              <th style="padding: 0.4rem 0.6rem; font-weight: 700; width: 60px;">อันดับ</th>
+              <th style="padding: 0.4rem 0.6rem; font-weight: 700; width: 110px;">รหัส</th>
+              <th style="padding: 0.4rem 0.6rem; font-weight: 700;">ชื่อ - นามสกุล</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    membersList.forEach((m, mIdx) => {
+      membersHtml += `
+        <tr style="border-bottom: 1px solid #F8FAFC;">
+          <td style="padding: 0.45rem 0.6rem; color: #64748B; font-weight: 700;">#${mIdx + 1}</td>
+          <td style="padding: 0.45rem 0.6rem; color: #0F172A; font-weight: 800;">${m.id || '-'}</td>
+          <td style="padding: 0.45rem 0.6rem; color: #334155; font-weight: 600;">${m.name || (activeRoster[m.id] || '-')}</td>
+        </tr>
+      `;
+    });
+
+    membersHtml += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    tr.innerHTML = `
+      <td style="text-align: center; font-weight: 800; font-size: 1rem; color: var(--primary-blue); vertical-align: middle;">
+        กลุ่มที่ ${groupIdx + 1}
+      </td>
+      <td style="padding: 0.75rem 0.6rem; vertical-align: middle;">
+        ${membersHtml}
+      </td>
+      <td style="vertical-align: middle;">
+        <div style="font-weight: 800; color: #1E1B4B; font-size: 0.95rem; margin-bottom: 0.2rem;">${p.projectTitle}</div>
+        <small style="color: #94A3B8;">สมาชิกทั้งหมด ${membersList.length} คน</small>
+      </td>
+      <td style="text-align: center; vertical-align: middle;">
+        <div style="display: inline-flex; gap: 0.4rem;">
+          <button type="button" style="background:#E0F2FE; color:#0369A1; border:none; padding:0.4rem 0.75rem; border-radius:8px; font-weight:700; font-size:0.8rem; cursor:pointer;" onclick="editProjectGroup('${key}')">✏️ แก้ไข</button>
+          <button type="button" style="background:#FEE2E2; color:#DC2626; border:none; padding:0.4rem 0.75rem; border-radius:8px; font-weight:700; font-size:0.8rem; cursor:pointer;" onclick="deleteProjectGroup('${key}')">🗑️ ลบ</button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  const countEl = document.getElementById('totalPairCount');
+  if (countEl) countEl.innerText = keys.length;
+}
+
+function editProjectGroup(groupKey) {
+  const p = currentProjectsData[groupKey];
+  if (!p) return;
+
+  document.getElementById('editingProjectKey').value = groupKey;
+  document.getElementById('projectTitleInput').value = p.projectTitle || '';
+  document.getElementById('projectFormTitle').innerText = '✏️ แก้ไขข้อมูลโครงงานกลุ่ม';
+  document.getElementById('btnSubmitProject').innerText = '💾 บันทึกการเปลี่ยนแปลง';
+  document.getElementById('btnCancelEditProject').style.display = 'inline-block';
+
+  // เติมข้อมูลสมาชิกกลับเข้าสู่ฟอร์ม
+  const container = document.getElementById('projectMembersContainer');
+  container.innerHTML = '';
+
+  let membersList = [];
+  if (p.members && Array.isArray(p.members)) {
+    membersList = p.members;
+  } else {
+    if (p.member1Id) membersList.push({ id: p.member1Id, name: p.member1Name });
+    if (p.member2Id) membersList.push({ id: p.member2Id, name: p.member2Name });
+  }
+
+  if (membersList.length === 0) {
+    addProjectMemberField();
+    addProjectMemberField();
+  } else {
+    membersList.forEach(m => {
+      addProjectMemberField(m.id, m.name);
+    });
+  }
+
+  // เลื่อนจอขึ้นมาที่ฟอร์ม
+  document.getElementById('projectFormTitle').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelEditProject() {
+  document.getElementById('editingProjectKey').value = '';
+  document.getElementById('projectTitleInput').value = '';
+  document.getElementById('projectFormTitle').innerText = '✍️ ฟอร์มบันทึกข้อมูลโครงงาน';
+  document.getElementById('btnSubmitProject').innerText = '💾 บันทึกข้อมูลโครงงาน 🚀';
+  document.getElementById('btnCancelEditProject').style.display = 'none';
+  initProjectMembersForm();
+}
+
+function deleteProjectGroup(groupKey) {
+  if (!confirm("ต้องการลบกลุ่มโครงงานนี้ใช่หรือไม่?")) return;
+
+  if (typeof CONFIG === 'undefined' || !CONFIG.FIREBASE_DB_URL) return;
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+
+  fetch(`${baseUrl}pair_projects/${activeCourseId}/${groupKey}.json`, {
+    method: "DELETE"
+  })
+  .then(() => {
+    if (document.getElementById('editingProjectKey').value === groupKey) {
+      cancelEditProject();
+    }
+    loadPairProjectsData();
+  })
+  .catch(err => console.error(err));
+}
+
+// -------------------------------------------------------------
+// --- ATTENDANCE & DASHBOARD LOGIC ---
+// -------------------------------------------------------------
+
 function loadSessionData() {
   if (typeof CONFIG === 'undefined' || !CONFIG.FIREBASE_DB_URL) {
     renderDashboardUI();
@@ -553,7 +864,7 @@ function renderDashboardUI() {
 
     if (hasFile) submittedCount++;
 
-    let attScore = rec.attendanceScore !== undefined ? rec.attendanceScore : (isPresent ? 100 : (isLate ? 80 : (isLeave ? 80 : 0)));
+    let attScore = rec.attendanceScore !== undefined ? rec.attendanceScore : (isPresent ? 100 : (isLate ? 50 : (isLeave ? 0 : 0)));
     let quizScore = rec.quizScore !== undefined ? rec.quizScore : (rec.score !== undefined ? rec.score : null);
     let hwScore = rec.homeworkScore !== undefined ? rec.homeworkScore : (hasFile ? 100 : null);
 
@@ -575,37 +886,79 @@ function renderDashboardUI() {
   });
 
   const totalStudents = rosterIds.length;
-  document.getElementById('statTotalStudents').innerText = totalStudents;
-  document.getElementById('statPresent').innerText = presentCount;
-  document.getElementById('statLate').innerText = lateCount;
-  document.getElementById('statSubmitted').innerText = submittedCount;
-  document.getElementById('statSubTotal').innerText = totalStudents;
-  document.getElementById('countAll').innerText = totalStudents;
+  
+  // อัปเดตข้อมูลบนการ์ดภาพรวม (แสดงตามรายวิชาที่เลือก)
+  const cTotal = document.getElementById('cardTotalStudents');
+  const cSub = document.getElementById('cardSubmittedCount');
+  const cPres = document.getElementById('cardPresentCount');
+  const cRisk = document.getElementById('cardAtRiskCount');
+  const cAvg = document.getElementById('cardAvgScore');
 
-  rankedList.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
+  if (cTotal) cTotal.innerText = `${totalStudents} คน`;
+  if (cSub) cSub.innerText = `${submittedCount}`;
+  if (cPres) cPres.innerText = `${presentCount} คน`;
+  if (cRisk) cRisk.innerText = `${absentCount + lateCount} คน`;
 
-  const topGrid = document.getElementById('topRankGrid');
-  if (topGrid) {
-    topGrid.innerHTML = '';
-    const medals = ['🥇', '🥈', '🥉', '⭐', '⭐'];
+  let sumAllScores = rankedList.reduce((acc, curr) => acc + curr.totalScore, 0);
+  let avgScore = totalStudents > 0 ? (sumAllScores / totalStudents).toFixed(1) : 0;
+  if (cAvg) cAvg.innerText = `${avgScore} คะแนน`;
+
+  // อัปเดตแถบความคืบหน้าสถิติห้องเรียน
+  const sPres = document.getElementById('statBarPresent');
+  const sLate = document.getElementById('statBarLate');
+  const sAbs = document.getElementById('statBarAbsent');
+
+  if (sPres) sPres.innerText = `${presentCount} คน`;
+  if (sLate) sLate.innerText = `${lateCount} คน`;
+  if (sAbs) sAbs.innerText = `${absentCount + leaveCount} คน`;
+
+  const pPres = document.getElementById('progressPresent');
+  const pLate = document.getElementById('progressLate');
+  const pAbs = document.getElementById('progressAbsent');
+
+  if (totalStudents > 0) {
+    if (pPres) pPres.style.width = `${Math.round((presentCount / totalStudents) * 100)}%`;
+    if (pLate) pLate.style.width = `${Math.round((lateCount / totalStudents) * 100)}%`;
+    if (pAbs) pAbs.style.width = `${Math.round(((absentCount + leaveCount) / totalStudents) * 100)}%`;
+  } else {
+    if (pPres) pPres.style.width = '0%';
+    if (pLate) pLate.style.width = '0%';
+    if (pAbs) pAbs.style.width = '0%';
+  }
+
+  const countAll = document.getElementById('countAll');
+  if (countAll) countAll.innerText = totalStudents;
+
+  rankedList.sort((a, b) => b.totalScore - a.totalScore);
+
+  // เรนเดอร์ 5 อันดับสูงสุดในหน้าหลัก
+  const modernContainer = document.getElementById('modernTopRankContainer');
+  if (modernContainer) {
+    modernContainer.innerHTML = '';
+    const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
     for (let i = 0; i < 5; i++) {
       const st = rankedList[i];
       if (st && st.totalScore > 0) {
-        topGrid.innerHTML += `
-          <div class="top-card">
-            <div class="top-card-rank">${medals[i]}</div>
-            <div class="top-card-name" title="${st.name}">${st.name}</div>
-            <div class="top-card-id">${st.id}</div>
-            <div class="top-card-score">${st.totalScore} แต้ม</div>
+        modernContainer.innerHTML += `
+          <div class="top-student-row">
+            <div style="display: flex; align-items: center; gap: 0.8rem;">
+              <span style="font-size: 1.3rem;">${medals[i]}</span>
+              <div>
+                <div style="font-weight: 700; color: #1E1B4B; font-size: 0.92rem;">${st.name}</div>
+                <div style="font-size: 0.76rem; color: #64748B;">รหัส: ${st.id}</div>
+              </div>
+            </div>
+            <div style="font-weight: 800; color: #0284C7; font-size: 1rem;">${st.totalScore} คะแนน</div>
           </div>
         `;
       } else {
-        topGrid.innerHTML += `
-          <div class="top-card" style="opacity: 0.35;">
-            <div class="top-card-rank">${medals[i]}</div>
-            <div class="top-card-name">-</div>
-            <div class="top-card-id">-</div>
-            <div class="top-card-score">-</div>
+        modernContainer.innerHTML += `
+          <div class="top-student-row" style="opacity: 0.4;">
+            <div style="display: flex; align-items: center; gap: 0.8rem;">
+              <span style="font-size: 1.3rem;">${medals[i]}</span>
+              <div style="font-weight: 700; color: #1E1B4B; font-size: 0.92rem;">-</div>
+            </div>
+            <div style="font-weight: 800; color: #64748B; font-size: 1rem;">-</div>
           </div>
         `;
       }
@@ -700,11 +1053,7 @@ function renderTableRows(rankedList) {
     let fileDisplay = '<span class="tag tag-waiting">ยังไม่ส่ง</span>';
     if (hasFile) {
       const targetUrl = rec.fileUrl || (currentAssignmentConfig && currentAssignmentConfig.folderUrl ? currentAssignmentConfig.folderUrl : '');
-      fileDisplay = `
-        <span onclick="openFilePreview('${targetUrl}')" class="tag tag-submitted" title="${rec.fileName || 'เปิดดูชิ้นงาน'}">
-          📄 ดูชิ้นงาน
-        </span>
-      `;
+      fileDisplay = `<span onclick="openFilePreview('${targetUrl}')" class="tag tag-submitted" title="${rec.fileName || 'เปิดดูชิ้นงาน'}">📄 ดูชิ้นงาน</span>`;
     }
 
     const ipDisplay = rec.ip || rec.ipAddress || '-';
@@ -780,7 +1129,6 @@ function confirmSaveStatus() {
 
   sessionAttendance[stId].status = newStatus;
 
-  // กำหนดคะแนนเข้าห้องตามสถานะที่เลือก (มาสายได้ 50 คะแนน, ตรงเวลาได้ 100, นอกนั้น 0)
   if (newStatus === 'PRESENT') {
     sessionAttendance[stId].attendanceScore = 100;
   } else if (newStatus === 'LATE') {
@@ -791,7 +1139,6 @@ function confirmSaveStatus() {
     sessionAttendance[stId].attendanceScore = 0;
   }
 
-  // บันทึกเวลาเปลี่ยนสถานะ
   const now = new Date();
   sessionAttendance[stId].checkInTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
@@ -859,7 +1206,6 @@ function confirmResetStudentSubmission() {
     .catch(() => setSystemStatus(false));
 }
 
-// ฟังก์ชันรีเซตแบบเต็มรูปแบบ (ล้างสถานะ, คะแนน, IP และควิซ) แยกปุ่มออกมาต่างหาก
 function confirmFullResetStudent() {
   if (!currentEditingStudentId) return;
 
@@ -870,7 +1216,6 @@ function confirmFullResetStudent() {
     return;
   }
 
-  // ลบข้อมูลทั้งหมดฝั่ง Client
   if (sessionAttendance[stId]) {
     delete sessionAttendance[stId].status;
     delete sessionAttendance[stId].attendanceScore;
@@ -896,7 +1241,6 @@ function confirmFullResetStudent() {
   const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
 
-  // ส่งคำสั่งอัปเดตค่าทั้งหมดเป็น null เพื่อลบออกจาก Firebase Realtime Database
   const fullResetPayload = {
     status: null,
     attendanceScore: null,
@@ -920,7 +1264,6 @@ function confirmFullResetStudent() {
   }).then(() => setSystemStatus(true))
     .catch(() => setSystemStatus(false));
 
-  // ลบประวัติควิซแยกต่างหาก
   fetch(`${baseUrl}quiz_submissions/${activeCourseId}/${safeSession}/${stId}.json`, {
     method: "DELETE"
   }).catch(() => {});
@@ -989,7 +1332,10 @@ function resetAssignmentInputs() {
   if (dInput) dInput.value = '';
 }
 
-// Quiz Manager functions
+// -------------------------------------------------------------
+// --- QUIZ MANAGER LOGIC ---
+// -------------------------------------------------------------
+
 function loadQuizSettings() {
   const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
   updateQuizActiveWeekLabel();
@@ -1317,6 +1663,10 @@ function exportQuizSubmissionsCSV() {
   a.download = `Quiz_Evidence_${activeCourseId}_${currentSession}.csv`;
   a.click();
 }
+
+// -------------------------------------------------------------
+// --- ROSTER & EXCEL MANAGER ---
+// -------------------------------------------------------------
 
 function renderStudentRosterManager() {
   const container = document.getElementById('rosterListContainer');

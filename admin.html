@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>ระบบจัดการชั้นเรียน - Admin Control Center</title>
-  <!-- โหลดไลบรารี SheetJS สำหรับอ่านไฟล์ Excel/CSV -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <link rel="stylesheet" href="css/admin.css">
 </head>
@@ -15,7 +14,6 @@
 
   <!-- แถบเมนูด้านซ้าย (Sidebar) -->
   <aside class="sidebar" id="sidebarMenu">
-    <!-- ส่วนหัวโปรไฟล์ระบบ -->
     <div class="sidebar-brand">
       <div class="brand-avatar">🎓</div>
       <div class="brand-title-box">
@@ -35,7 +33,7 @@
 
       <div class="nav-section-title">การจัดการชั้นเรียน</div>
       <div class="nav-group">
-        <button type="button" class="nav-link" onclick="switchMainTab('dashboard', this); scrollToSection('tableSection');">
+        <button type="button" class="nav-link" onclick="switchMainTab('classManager', this)">
           <span class="icon">👥</span>
           <span>ชั้นเรียน & บันทึกคะแนน</span>
         </button>
@@ -43,12 +41,15 @@
           <span class="icon">📝</span>
           <span>จัดการควิซ & หลักฐาน</span>
         </button>
-        <!-- เมนูจัดการตำแหน่งห้องเรียน (Location Lock) -->
         <button type="button" class="nav-link" id="navLocationTab" onclick="switchMainTab('locationManager', this)">
           <span class="icon">📍</span>
           <span>จัดการตำแหน่ง (GPS Lock)</span>
         </button>
-        <button type="button" class="nav-link" onclick="switchMainTab('dashboard', this); scrollToSection('hwSection');">
+        <button type="button" class="nav-link" id="navPairProjectTab" onclick="switchMainTab('pairProjectManager', this)">
+          <span class="icon">👥</span>
+          <span>จัดการโครงงานกลุ่ม</span>
+        </button>
+        <button type="button" class="nav-link" onclick="switchMainTab('classManager', this); scrollToSection('hwSection');">
           <span class="icon">📁</span>
           <span>จัดการงาน / การบ้าน</span>
         </button>
@@ -96,7 +97,7 @@
       <div class="top-nav-left">
         <button type="button" class="menu-toggle-btn" onclick="toggleSidebar()" aria-label="Open Menu">☰</button>
         <button type="button" class="nav-icon-btn hidden-mobile" title="Back">←</button>
-        <h2 class="page-title" id="topPageTitle">ระบบจัดการชั้นเรียน</h2>
+        <h2 class="page-title" id="topPageTitle">หน้าหลัก</h2>
       </div>
 
       <div class="top-nav-right">
@@ -110,47 +111,130 @@
     <!-- Main Body Container -->
     <main class="page-content">
 
-      <!-- กล่องเลือกรายวิชาหลักด้านบน -->
-      <section class="course-selector-banner">
-        <div class="csb-left">
-          <div class="csb-icon">📚</div>
-          <div class="csb-controls">
-            <div class="csb-label-row">
-              <span class="csb-tag">เลือกรายวิชาที่กำลังสอน</span>
-              <span class="csb-sub-desc" id="adminCourseSubtitle">กำลังโหลดข้อมูลรายวิชา...</span>
+      <!-- กล่องเลือกรายวิชาหลักด้านบน (ล็อกติดขอบด้านบน Sticky Header) -->
+      <div class="sticky-header-wrapper">
+        <section class="course-selector-banner" style="margin-bottom: 0;">
+          <div class="csb-left">
+            <div class="csb-icon">📚</div>
+            <div class="csb-controls">
+              <div class="csb-label-row">
+                <span class="csb-tag">เลือกรายวิชาที่กำลังสอน</span>
+                <span class="csb-sub-desc" id="adminCourseSubtitle">กำลังโหลดข้อมูลรายวิชา...</span>
+              </div>
+              <select id="adminCourseSelect" class="main-course-dropdown" onchange="syncCourseSelection(this.value)"></select>
             </div>
-            <select id="adminCourseSelect" class="main-course-dropdown" onchange="syncCourseSelection(this.value)"></select>
           </div>
-        </div>
 
-        <div class="csb-right">
-          <div class="ready-badge">
-            <span class="ready-check">✔</span>
-            <span class="ready-text">ระบบเช็คชื่อ & บันทึกคะแนนพร้อมใช้งาน</span>
+          <div class="csb-right">
+            <div class="ready-badge">
+              <span class="ready-check">✔</span>
+              <span class="ready-text">ระบบเช็คชื่อ & บันทึกคะแนนพร้อมใช้งาน</span>
+            </div>
           </div>
-        </div>
-      </section>
-
-      <!-- 📖 กล่องแสดงรายละเอียดข้อมูลห้องเรียนและเวลาของวิชาที่เลือก -->
-      <section class="course-info-banner">
-        <div class="cib-main">
-          <div class="cib-badge">📖 รายละเอียดวิชาที่เลือก</div>
-          <h2 id="dispCourseTitle" class="cib-title">กำลังดึงข้อมูลรายวิชา...</h2>
-          <div class="cib-tags">
-            <span class="cib-pill" id="dispCourseSec">📌 ตอนเรียน: -</span>
-            <span class="cib-pill" id="dispCourseRoom">🚪 ห้องเรียน: -</span>
-            <span class="cib-pill" id="dispCourseDayTime">⏰ วัน-เวลา: -</span>
-            <span class="cib-pill cib-pill-highlight" id="dispCourseRosterCount">👥 นักศึกษา: 0 คน</span>
-          </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
       <!-- ============================================== -->
-      <!-- TAB 1: DASHBOARD หน้าหลัก (รายชื่อ & บันทึกคะแนน) -->
+      <!-- TAB 1: DASHBOARD หน้าหลัก (แสดงการ์ดสรุป 5 ช่องและสถิติห้องเรียน) -->
       <!-- ============================================== -->
-      <div id="tabDashboardView" class="main-tab-content active-tab">
+      <div id="tabDashboardView" class="main-tab-content active-tab" style="margin-top: 1.5rem;">
         
-        <!-- กล่องตั้งค่าโฟลเดอร์ Google Drive รับงาน -->
+        <div style="margin-bottom: 0.5rem;">
+          <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--text-dark); margin: 0 0 0.2rem 0;">หน้าหลัก</h2>
+          <p id="mainWelcomeSub" style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">ภาพรวมการจัดการชั้นเรียนและสถิติประจำวิชา</p>
+        </div>
+
+        <!-- 🎨 5 การ์ดสถิติภาพรวม -->
+        <div class="dashboard-cards-grid">
+          <div class="dash-card card-blue">
+            <p class="dash-card-title">นักเรียนทั้งหมด</p>
+            <h3 class="dash-card-value" id="cardTotalStudents">0 คน</h3>
+            <span class="dash-card-sub" id="cardSubCourseName">-</span>
+          </div>
+
+          <div class="dash-card card-green">
+            <p class="dash-card-title">งานที่มอบหมาย / ส่งแล้ว</p>
+            <h3 class="dash-card-value"><span id="cardSubmittedCount">0</span> งาน</h3>
+            <span class="dash-card-sub">อัปโหลดไฟล์เรียบร้อย</span>
+          </div>
+
+          <div class="dash-card card-purple">
+            <p class="dash-card-title">คะแนนเฉลี่ยห้อง</p>
+            <h3 class="dash-card-value" id="cardAvgScore">0 คะแนน</h3>
+            <span class="dash-card-sub">จากทุกกิจกรรมในสัปดาห์นี้</span>
+          </div>
+
+          <div class="dash-card card-orange">
+            <p class="dash-card-title">เข้าเรียนตรงเวลา</p>
+            <h3 class="dash-card-value" id="cardPresentCount">0 คน</h3>
+            <span class="dash-card-sub">เช็คอินรอบปกติ</span>
+          </div>
+
+          <div class="dash-card card-pink">
+            <p class="dash-card-title">นักศึกษาต้องดูแล (ขาด/สาย)</p>
+            <h3 class="dash-card-value" id="cardAtRiskCount">0 คน</h3>
+            <span class="dash-card-sub">ต้องติดตามเป็นพิเศษ</span>
+          </div>
+        </div>
+
+        <!-- ส่วนล่าง: ภาพรวมสถิติคะแนนห้องเรียน และ Top 5 นักเรียน -->
+        <div class="dashboard-bottom-grid">
+          
+          <section class="content-card stats-overview-card" style="margin:0;">
+            <div class="stats-card-header">
+              <span class="title-bullet"></span>
+              <h3 class="card-section-title" style="margin:0;">ภาพรวมสถิติคะแนนห้องเรียน</h3>
+            </div>
+            <div class="stats-bars-container">
+              <div class="stat-bar-item">
+                <div class="stat-bar-info">
+                  <span>เข้าเรียนตรงเวลา (100 แต้ม)</span>
+                  <span id="statBarPresent" class="stat-count-val">0 คน</span>
+                </div>
+                <div class="progress-track">
+                  <div id="progressPresent" class="progress-fill fill-green" style="width: 0%;"></div>
+                </div>
+              </div>
+
+              <div class="stat-bar-item">
+                <div class="stat-bar-info">
+                  <span>มาสาย (50 แต้ม)</span>
+                  <span id="statBarLate" class="stat-count-val">0 คน</span>
+                </div>
+                <div class="progress-track">
+                  <div id="progressLate" class="progress-fill fill-amber" style="width: 0%;"></div>
+                </div>
+              </div>
+
+              <div class="stat-bar-item">
+                <div class="stat-bar-info">
+                  <span>ขาดเรียน / ลา (0 แต้ม)</span>
+                  <span id="statBarAbsent" class="stat-count-val">0 คน</span>
+                </div>
+                <div class="progress-track">
+                  <div id="progressAbsent" class="progress-fill fill-red" style="width: 0%;"></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="content-card top-students-card" style="margin:0;">
+            <div class="stats-card-header">
+              <span class="title-bullet"></span>
+              <h3 class="card-section-title" style="margin:0;">5 อันดับนักศึกษาคะแนนสูงสุด</h3>
+            </div>
+            <div id="modernTopRankContainer" class="top-students-list"></div>
+          </section>
+
+        </div>
+
+      </div>
+
+      <!-- ============================================== -->
+      <!-- TAB 2: CLASS MANAGER (ตารางคะแนน รายชื่อ และส่งงาน) -->
+      <!-- ============================================== -->
+      <div id="tabClassManagerView" class="main-tab-content" style="margin-top: 1.5rem;">
+        
         <section class="content-card hw-config-card" id="hwSection">
           <div class="hw-grid">
             <div class="form-field">
@@ -165,54 +249,6 @@
           </div>
         </section>
 
-        <!-- Grid สถิติ 4 ช่อง -->
-        <section class="stats-row">
-          <div class="stat-box grad-blue">
-            <div class="stat-header">
-              <span class="stat-lbl">นักศึกษาทั้งหมด</span>
-              <span class="stat-badge">Total</span>
-            </div>
-            <div class="stat-val" id="statTotalStudents">0</div>
-            <div class="stat-sub">ลงทะเบียนในวิชานี้</div>
-          </div>
-
-          <div class="stat-box grad-sky">
-            <div class="stat-header">
-              <span class="stat-lbl">เข้าเรียนตรงเวลา</span>
-              <span class="stat-badge">Present</span>
-            </div>
-            <div class="stat-val text-cyan" id="statPresent">0</div>
-            <div class="stat-sub">เช็คอินรอบปกติ (100 แต้ม)</div>
-          </div>
-
-          <div class="stat-box grad-amber">
-            <div class="stat-header">
-              <span class="stat-lbl">มาสาย</span>
-              <span class="stat-badge">Late</span>
-            </div>
-            <div class="stat-val text-amber" id="statLate">0</div>
-            <div class="stat-sub">เกินกำหนดเวลาเข้าเรียน</div>
-          </div>
-
-          <div class="stat-box grad-purple">
-            <div class="stat-header">
-              <span class="stat-lbl">ส่งการบ้านแล้ว</span>
-              <span class="stat-badge">HW</span>
-            </div>
-            <div class="stat-val text-purple">
-              <span id="statSubmitted">0</span>/<span id="statSubTotal">0</span>
-            </div>
-            <div class="stat-sub">อัปโหลดไฟล์เรียบร้อย</div>
-          </div>
-        </section>
-
-        <!-- Top 5 Leaderboard -->
-        <section class="top-rank-wrapper">
-          <div class="section-title-sm">🏆 5 อันดับคะแนนรวมสูงสุดประจำสัปดาห์</div>
-          <div class="top-rank-container" id="topRankGrid"></div>
-        </section>
-
-        <!-- ตารางรายชื่อนักศึกษา & ช่องบันทึกคะแนน -->
         <section class="content-card" id="tableSection">
           <div class="table-card-header">
             <div class="table-title-group">
@@ -259,10 +295,10 @@
                   <th style="min-width: 105px;">รหัส</th>
                   <th style="min-width: 160px;">ชื่อ - นามสกุล</th>
                   <th style="min-width: 100px;">สถานะเช็คชื่อ</th>
-                  <th style="min-width: 90px; text-align: center;" title="คะแนนการเข้าชั้นเรียน">🎯 เข้าเรียน</th>
-                  <th style="min-width: 90px; text-align: center;" title="คะแนนควิซ/แบบทดสอบ">📝 ควิซ</th>
-                  <th style="min-width: 90px; text-align: center;" title="คะแนนการบ้าน/ชิ้นงาน">📁 การบ้าน</th>
-                  <th style="min-width: 90px; text-align: center;" title="คะแนนรวมของสัปดาห์นี้">⭐ รวม</th>
+                  <th style="min-width: 90px; text-align: center;">🎯 เข้าเรียน</th>
+                  <th style="min-width: 90px; text-align: center;">📝 ควิซ</th>
+                  <th style="min-width: 90px; text-align: center;">📁 การบ้าน</th>
+                  <th style="min-width: 90px; text-align: center;">⭐ รวม</th>
                   <th style="min-width: 95px;">สถานะงาน</th>
                   <th style="min-width: 105px;">ไฟล์ชิ้นงาน</th>
                   <th style="min-width: 110px;">IP Address</th>
@@ -275,10 +311,8 @@
 
       </div>
 
-      <!-- ============================================== -->
-      <!-- TAB 2: QUIZ MANAGER แท็บจัดการควิซ & คลังหลักฐาน -->
-      <!-- ============================================== -->
-      <div id="tabQuizView" class="main-tab-content">
+      <!-- TAB 3: QUIZ MANAGER -->
+      <div id="tabQuizView" class="main-tab-content" style="margin-top: 1.5rem;">
         <section class="content-card quiz-manager-card">
           <div class="quiz-header-bar">
             <div>
@@ -286,7 +320,7 @@
                 <span class="title-bullet"></span>
                 <h3>จัดการชุดคำถามควิซประจำสัปดาห์</h3>
               </div>
-              <p class="quiz-sub-desc">ตั้งค่าคำถามควิซสำหรับ <strong id="quizActiveWeekLabel" class="text-primary-blue">Week 1</strong> (ระบบจะบันทึกเก็บไว้เป็นหลักฐานย้อนหลัง)</p>
+              <p class="quiz-sub-desc">ตั้งค่าคำถามควิซสำหรับ <strong id="quizActiveWeekLabel" class="text-primary-blue">Week 1</strong></p>
             </div>
 
             <div class="quiz-status-toggle-box">
@@ -318,41 +352,10 @@
 
           <div id="quizQuestionsContainer" class="quiz-questions-list"></div>
         </section>
-
-        <section class="content-card" style="margin-top: 1.25rem;">
-          <div class="table-card-header">
-            <div class="table-title">
-              <span class="title-bullet"></span>
-              <h3>📋 ตารางหลักฐานและผลการตอบควิซของนักศึกษา</h3>
-            </div>
-            <div class="table-actions">
-              <button type="button" class="btn-cyan-gradient" onclick="exportQuizSubmissionsCSV()">📥 ส่งออกหลักฐานควิซ (CSV)</button>
-            </div>
-          </div>
-
-          <div class="table-scroll-area">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th style="min-width: 50px;">ลำดับ</th>
-                  <th style="min-width: 110px;">รหัสนักศึกษา</th>
-                  <th style="min-width: 160px;">ชื่อ - นามสกุล</th>
-                  <th style="min-width: 90px; text-align: center;">คะแนนที่ได้</th>
-                  <th style="min-width: 120px;">เวลาที่ส่งคำตอบ</th>
-                  <th style="min-width: 110px;">IP Address</th>
-                  <th style="min-width: 100px; text-align: center;">หลักฐานคำตอบ</th>
-                </tr>
-              </thead>
-              <tbody id="quizSubmissionsTableBody"></tbody>
-            </table>
-          </div>
-        </section>
       </div>
 
-      <!-- ============================================== -->
-      <!-- TAB 3: LOCATION MANAGER แท็บจัดการพิกัดตำแหน่ง (GPS Lock) -->
-      <!-- ============================================== -->
-      <div id="tabLocationView" class="main-tab-content">
+      <!-- TAB 4: LOCATION MANAGER -->
+      <div id="tabLocationView" class="main-tab-content" style="margin-top: 1.5rem;">
         <section class="content-card location-manager-card">
           <div class="quiz-header-bar">
             <div>
@@ -360,7 +363,7 @@
                 <span class="title-bullet"></span>
                 <h3>📍 ตั้งค่าขอบเขตตำแหน่งห้องเรียน (GPS Location Lock)</h3>
               </div>
-              <p class="quiz-sub-desc">กำหนดพิกัดละติจูด ลองจิจูด และรัศมีการเช็คชื่อ เพื่อบังคับให้นักศึกษาต้องอยู่ในห้องเรียนจึงจะเช็คชื่อได้</p>
+              <p class="quiz-sub-desc">กำหนดพิกัดละติจูด ลองจิจูด และรัศมีการเช็คชื่อ</p>
             </div>
 
             <div class="quiz-status-toggle-box">
@@ -399,6 +402,75 @@
         </section>
       </div>
 
+      <!-- ============================================== -->
+      <!-- TAB 5: PROJECT MANAGER (จัดการโครงงานกลุ่ม รองรับเพิ่มสมาชิกได้) -->
+      <!-- ============================================== -->
+      <div id="tabPairProjectView" class="main-tab-content" style="margin-top: 1.5rem;">
+        <section class="content-card">
+          <div class="quiz-header-bar" style="margin-bottom: 1.5rem;">
+            <div>
+              <div class="quiz-main-title">
+                <span class="title-bullet"></span>
+                <h3>👥 ลงทะเบียนและจัดการโครงงานกลุ่ม (Project Management)</h3>
+              </div>
+              <p class="quiz-sub-desc">กรอกรหัสนักศึกษาเพื่อดึงชื่ออัตโนมัติ สามารถเพิ่ม-ลดสมาชิกกลุ่มได้ และบันทึกหัวข้อโครงงาน</p>
+            </div>
+          </div>
+
+          <!-- ฟอร์มลงทะเบียนโครงงาน -->
+          <div style="background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 20px; padding: 1.5rem; margin-bottom: 1.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+              <h4 id="projectFormTitle" style="font-size: 1.05rem; font-weight: 800; color: #1E1B4B; margin: 0;">✍️ ฟอร์มบันทึกข้อมูลโครงงาน</h4>
+              <input type="hidden" id="editingProjectKey" value="">
+              <button type="button" id="btnCancelEditProject" style="display:none; background:#F1F5F9; color:#475569; border:1px solid #CBD5E1; padding:0.35rem 0.85rem; border-radius:8px; font-size:0.8rem; font-weight:700; cursor:pointer;" onclick="cancelEditProject()">ยกเลิกการแก้ไข</button>
+            </div>
+
+            <!-- กล่องสมาชิกกลุ่มแบบไดนามิก -->
+            <div id="projectMembersContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+              <!-- รายการสมาชิกจะถูกสร้างด้วย JS -->
+            </div>
+
+            <div style="margin-bottom: 1.25rem;">
+              <button type="button" class="btn-subtle" onclick="addProjectMemberField()" style="border: 1.5px dashed var(--primary-cyan); color: var(--primary-blue); font-weight: 800; padding: 0.5rem 1.2rem; border-radius: 10px;">
+                ➕ เพิ่มสมาชิกในกลุ่ม
+              </button>
+            </div>
+
+            <div class="form-field" style="margin-bottom: 1.25rem;">
+              <label style="font-size: 0.88rem; font-weight: 800; color: #1E1B4B; display: block; margin-bottom: 0.45rem;">หัวข้อโครงงาน (Project Title):</label>
+              <input type="text" id="projectTitleInput" class="custom-input" placeholder="ระบุชื่อหัวข้อโครงงานที่ได้รับมอบหมาย..." style="font-size: 0.95rem;">
+            </div>
+
+            <button type="button" id="btnSubmitProject" class="btn-cyan-gradient" onclick="saveProjectGroup()">💾 บันทึกข้อมูลโครงงาน 🚀</button>
+          </div>
+
+          <!-- ตารางแสดงรายละเอียดกลุ่มด้านล่าง -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span class="title-bullet"></span>
+              <h3 class="card-section-title" style="margin:0;">📋 รายชื่อกลุ่มโครงงานทั้งหมด</h3>
+            </div>
+            <span style="font-size: 0.88rem; font-weight: 700; color: #475569; background: #F1F5F9; padding: 0.35rem 0.85rem; border-radius: 9999px;">
+              จำนวนกลุ่ม: <strong id="totalPairCount" style="color: var(--primary-blue);">0</strong> กลุ่ม
+            </span>
+          </div>
+
+          <div class="table-scroll-area">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width: 100px; text-align: center;">ลำดับกลุ่ม</th>
+                  <th style="min-width: 320px;">สมาชิกกลุ่ม</th>
+                  <th style="min-width: 250px;">หัวข้อโครงงาน</th>
+                  <th style="width: 140px; text-align: center;">การจัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="pairTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
     </main>
   </div>
 
@@ -418,24 +490,22 @@
       <div class="form-field mb-3">
         <label for="modalStatusSelect">สถานะการเข้าเรียน:</label>
         <select id="modalStatusSelect" class="custom-input">
-          <option value="PRESENT">✅ เข้าเรียนตรงเวลา (Present)</option>
-          <option value="LATE">🟡 มาสาย (Late)</option>
-          <option value="LEAVE">🏥 ลาเรียน (Leave)</option>
-          <option value="ABSENT">❌ ขาดเรียน (Absent)</option>
+          <option value="PRESENT">✅ เข้าเรียนตรงเวลา (Present - 100 คะแนน)</option>
+          <option value="LATE">🟡 มาสาย (Late - 50 คะแนน)</option>
+          <option value="LEAVE">🏥 ลาเรียน (Leave - 0 คะแนน)</option>
+          <option value="ABSENT">❌ ขาดเรียน (Absent - 0 คะแนน)</option>
         </select>
       </div>
 
-      <!-- ปุ่มรีเซ็ตการส่งงานเดิม -->
       <div class="reset-wrapper" style="margin-bottom: 0.6rem;">
         <button type="button" class="btn-outline-danger" onclick="confirmResetStudentSubmission()">
-          📂 รีเซ็ตเฉพาะการส่งการบ้าน (ให้นักศึกษาส่งใหม่ได้)
+          📂 รีเซ็ตเฉพาะการส่งการบ้าน
         </button>
       </div>
 
-      <!-- ปุ่มรีเซ็ตข้อมูลทั้งหมดแบบแยกเด็ดขาด -->
       <div class="reset-wrapper" style="margin-bottom: 1.25rem;">
         <button type="button" class="btn-outline-danger" style="background: #DC2626; color: white; border-color: #B91C1C;" onclick="confirmFullResetStudent()">
-          🔄 รีเซ็ตข้อมูลทั้งหมด 🔄
+          🔄 รีเซ็ตข้อมูลทั้งหมด
         </button>
       </div>
 
@@ -456,30 +526,12 @@
     </div>
   </div>
 
-  <div id="quizEvidenceModal" class="modal-backdrop">
-    <div class="modal-card modal-wide">
-      <div class="modal-head">
-        <h4>🔍 หลักฐานการตอบควิซรายบุคคล</h4>
-        <button type="button" class="modal-x" onclick="closeQuizEvidenceModal()">✕</button>
-      </div>
-      <div class="student-focus-box">
-        <span class="sf-lbl">ผู้ส่งคำตอบ:</span>
-        <div class="sf-name" id="quizEvidenceStudentName">-</div>
-      </div>
-      <div id="quizEvidenceDetailContainer" class="quiz-evidence-list"></div>
-      <div class="modal-actions-bar" style="margin-top: 1rem;">
-        <button type="button" class="btn-subtle" onclick="closeQuizEvidenceModal()">ปิดหน้าต่าง</button>
-      </div>
-    </div>
-  </div>
-
   <div id="settingsModal" class="modal-backdrop">
     <div class="modal-card modal-wide">
       <div class="modal-head">
         <h4>⚙️ ตั้งค่าข้อมูลวิชาและนำเข้ารายชื่อนักศึกษา</h4>
         <button type="button" class="modal-x" onclick="closeSettingsModal()">✕</button>
       </div>
-
       <div class="settings-two-col">
         <div class="settings-col">
           <h5 class="sub-col-title">รายละเอียดห้องเรียน</h5>
@@ -515,7 +567,7 @@
           <div class="excel-uploader" id="excelDropZone" onclick="document.getElementById('excelFileInput').click()">
             <div class="u-icon">📊</div>
             <div class="u-title">ลากไฟล์ Excel / CSV มาวางที่นี่</div>
-            <div class="u-sub">รองรับ .xlsx, .xls, .csv (ระบบกวาดรหัสและชื่ออัตโนมัติ)</div>
+            <div class="u-sub">รองรับ .xlsx, .xls, .csv</div>
             <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" style="display:none;" onchange="handleExcelUpload(this.files[0])">
           </div>
 
