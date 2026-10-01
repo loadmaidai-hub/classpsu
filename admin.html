@@ -135,7 +135,7 @@
       </div>
 
       <!-- ============================================== -->
-      <!-- TAB 1: DASHBOARD หน้าหลัก (แสดงการ์ดสรุป 5 ช่องและสถิติห้องเรียน) -->
+      <!-- TAB 1: DASHBOARD หน้าหลัก (แสดงเฉพาะการ์ดสรุปและสถิติ) -->
       <!-- ============================================== -->
       <div id="tabDashboardView" class="main-tab-content active-tab" style="margin-top: 1.5rem;">
         
@@ -403,11 +403,11 @@
       </div>
 
       <!-- ============================================== -->
-      <!-- TAB 5: PROJECT MANAGER (จัดการโครงงานกลุ่ม รองรับเพิ่มสมาชิกได้) -->
+      <!-- TAB 5: PROJECT MANAGER (จัดการโครงงานกลุ่ม) -->
       <!-- ============================================== -->
       <div id="tabPairProjectView" class="main-tab-content" style="margin-top: 1.5rem;">
         <section class="content-card">
-          <div class="quiz-header-bar" style="margin-bottom: 1.5rem;">
+          <div class="quiz-header-bar" style="margin-bottom: 1.25rem;">
             <div>
               <div class="quiz-main-title">
                 <span class="title-bullet"></span>
@@ -415,14 +415,20 @@
               </div>
               <p class="quiz-sub-desc">กรอกรหัสนักศึกษาเพื่อดึงชื่ออัตโนมัติ สามารถเพิ่ม-ลดสมาชิกกลุ่มได้ และบันทึกหัวข้อโครงงาน</p>
             </div>
+            <!-- ปุ่มเปิดฟอร์มสร้างกลุ่มใหม่ -->
+            <div>
+              <button type="button" id="btnShowAddGroup" class="btn-cyan-gradient" onclick="openNewProjectForm()" style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem;">
+                ➕ เพิ่มกลุ่มโครงงานใหม่
+              </button>
+            </div>
           </div>
 
-          <!-- ฟอร์มลงทะเบียนโครงงาน -->
-          <div style="background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 20px; padding: 1.5rem; margin-bottom: 1.75rem;">
+          <!-- ฟอร์มลงทะเบียนโครงงาน (เริ่มต้นซ่อนไว้) -->
+          <div id="projectFormCard" style="display: none; background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 20px; padding: 1.5rem; margin-bottom: 1.75rem; transition: all 0.3s ease;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
               <h4 id="projectFormTitle" style="font-size: 1.05rem; font-weight: 800; color: #1E1B4B; margin: 0;">✍️ ฟอร์มบันทึกข้อมูลโครงงาน</h4>
               <input type="hidden" id="editingProjectKey" value="">
-              <button type="button" id="btnCancelEditProject" style="display:none; background:#F1F5F9; color:#475569; border:1px solid #CBD5E1; padding:0.35rem 0.85rem; border-radius:8px; font-size:0.8rem; font-weight:700; cursor:pointer;" onclick="cancelEditProject()">ยกเลิกการแก้ไข</button>
+              <button type="button" style="background:#F1F5F9; color:#475569; border:1px solid #CBD5E1; padding:0.35rem 0.85rem; border-radius:8px; font-size:0.8rem; font-weight:700; cursor:pointer;" onclick="closeProjectForm()">✕ ปิดฟอร์ม</button>
             </div>
 
             <!-- กล่องสมาชิกกลุ่มแบบไดนามิก -->
@@ -441,7 +447,10 @@
               <input type="text" id="projectTitleInput" class="custom-input" placeholder="ระบุชื่อหัวข้อโครงงานที่ได้รับมอบหมาย..." style="font-size: 0.95rem;">
             </div>
 
-            <button type="button" id="btnSubmitProject" class="btn-cyan-gradient" onclick="saveProjectGroup()">💾 บันทึกข้อมูลโครงงาน 🚀</button>
+            <div style="display: flex; gap: 0.75rem;">
+              <button type="button" id="btnSubmitProject" class="btn-cyan-gradient" onclick="saveProjectGroup()">💾 บันทึกข้อมูลโครงงาน 🚀</button>
+              <button type="button" class="btn-subtle" onclick="closeProjectForm()">ยกเลิก</button>
+            </div>
           </div>
 
           <!-- ตารางแสดงรายละเอียดกลุ่มด้านล่าง -->
@@ -460,7 +469,7 @@
               <thead>
                 <tr>
                   <th style="width: 100px; text-align: center;">ลำดับกลุ่ม</th>
-                  <th style="min-width: 320px;">สมาชิกกลุ่ม</th>
+                  <th style="min-width: 340px;">สมาชิกกลุ่ม</th>
                   <th style="min-width: 250px;">หัวข้อโครงงาน</th>
                   <th style="width: 140px; text-align: center;">การจัดการ</th>
                 </tr>

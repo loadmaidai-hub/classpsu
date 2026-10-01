@@ -2001,3 +2001,58 @@ function logoutAdmin() {
   sessionStorage.removeItem("adminAuthenticated");
   window.location.href = "teacher.html";
 }
+
+// ฟังก์ชันเปิดฟอร์มเพื่อเพิ่มกลุ่มใหม่
+function openNewProjectForm() {
+  const card = document.getElementById('projectFormCard');
+  if (!card) return;
+  
+  cancelEditProject(); // เคลียร์ฟอร์มเป็นค่าเริ่มต้น 2 คน
+  card.style.display = 'block';
+  card.scrollIntoView({ behavior: 'smooth' });
+}
+
+// ฟังก์ชันปิดฟอร์ม
+function closeProjectForm() {
+  const card = document.getElementById('projectFormCard');
+  if (card) card.style.display = 'none';
+  cancelEditProject();
+}
+
+// ปรับแก้ฟังก์ชัน editProjectGroup ให้เปิดฟอร์มขึ้นมาทันทีเมื่อกดแก้ไขในตาราง
+function editProjectGroup(groupKey) {
+  const p = currentProjectsData[groupKey];
+  if (!p) return;
+
+  const card = document.getElementById('projectFormCard');
+  if (card) card.style.display = 'block'; // แสดงฟอร์ม
+
+  document.getElementById('editingProjectKey').value = groupKey;
+  document.getElementById('projectTitleInput').value = p.projectTitle || '';
+  document.getElementById('projectFormTitle').innerText = '✏️ แก้ไขข้อมูลโครงงานกลุ่ม';
+  document.getElementById('btnSubmitProject').innerText = '💾 บันทึกการเปลี่ยนแปลง';
+
+  // เติมข้อมูลสมาชิกเดิมเข้าสู่ฟอร์ม
+  const container = document.getElementById('projectMembersContainer');
+  container.innerHTML = '';
+
+  let membersList = [];
+  if (p.members && Array.isArray(p.members)) {
+    membersList = p.members;
+  } else {
+    if (p.member1Id) membersList.push({ id: p.member1Id, name: p.member1Name });
+    if (p.member2Id) membersList.push({ id: p.member2Id, name: p.member2Name });
+  }
+
+  if (membersList.length === 0) {
+    addProjectMemberField();
+    addProjectMemberField();
+  } else {
+    membersList.forEach(m => {
+      addProjectMemberField(m.id, m.name);
+    });
+  }
+
+  // เลื่อนหน้าจอไปที่ตัวฟอร์ม
+  card.scrollIntoView({ behavior: 'smooth' });
+}
