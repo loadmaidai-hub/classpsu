@@ -135,7 +135,7 @@
       </div>
 
       <!-- ============================================== -->
-      <!-- TAB 1: DASHBOARD หน้าหลัก (แสดงเฉพาะการ์ดสรุปและสถิติ) -->
+      <!-- TAB 1: DASHBOARD หน้าหลัก (แสดงการ์ดสรุป 5 ช่องและสถิติห้องเรียน) -->
       <!-- ============================================== -->
       <div id="tabDashboardView" class="main-tab-content active-tab" style="margin-top: 1.5rem;">
         
@@ -403,80 +403,128 @@
       </div>
 
       <!-- ============================================== -->
-      <!-- TAB 5: PROJECT MANAGER (จัดการโครงงานกลุ่ม) -->
+      <!-- TAB 5: PROJECT MANAGER (จัดการโครงงานกลุ่ม & ตรวจการบ้านย้อนหลัง) -->
       <!-- ============================================== -->
       <div id="tabPairProjectView" class="main-tab-content" style="margin-top: 1.5rem;">
         <section class="content-card">
+          <!-- Header Bar -->
           <div class="quiz-header-bar" style="margin-bottom: 1.25rem;">
             <div>
               <div class="quiz-main-title">
                 <span class="title-bullet"></span>
-                <h3>👥 ลงทะเบียนและจัดการโครงงานกลุ่ม (Project Management)</h3>
+                <h3>👥 จัดการโครงงานกลุ่ม & ตรวจการบ้าน (Project Management)</h3>
               </div>
-              <p class="quiz-sub-desc">กรอกรหัสนักศึกษาเพื่อดึงชื่ออัตโนมัติ สามารถเพิ่ม-ลดสมาชิกกลุ่มได้ และบันทึกหัวข้อโครงงาน</p>
+              <p class="quiz-sub-desc">จัดการลงทะเบียนกลุ่มโครงงาน และตรวจไฟล์การบ้านที่ตัวแทนกลุ่มส่งเข้ามา (เลือกตรวจย้อนหลังได้ทุกสัปดาห์)</p>
             </div>
-            <!-- ปุ่มเปิดฟอร์มสร้างกลุ่มใหม่ -->
-            <div>
+            <!-- ปุ่มเพิ่มกลุ่ม (จะแสดงเฉพาะแท็บข้อมูลกลุ่ม) -->
+            <div id="projectAddGroupAction">
               <button type="button" id="btnShowAddGroup" class="btn-cyan-gradient" onclick="openNewProjectForm()" style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem;">
                 ➕ เพิ่มกลุ่มโครงงานใหม่
               </button>
             </div>
           </div>
 
-          <!-- ฟอร์มลงทะเบียนโครงงาน (เริ่มต้นซ่อนไว้) -->
-          <div id="projectFormCard" style="display: none; background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 20px; padding: 1.5rem; margin-bottom: 1.75rem; transition: all 0.3s ease;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-              <h4 id="projectFormTitle" style="font-size: 1.05rem; font-weight: 800; color: #1E1B4B; margin: 0;">✍️ ฟอร์มบันทึกข้อมูลโครงงาน</h4>
-              <input type="hidden" id="editingProjectKey" value="">
-              <button type="button" style="background:#F1F5F9; color:#475569; border:1px solid #CBD5E1; padding:0.35rem 0.85rem; border-radius:8px; font-size:0.8rem; font-weight:700; cursor:pointer;" onclick="closeProjectForm()">✕ ปิดฟอร์ม</button>
+          <!-- 🔘 แท็บย่อยสลับหน้า: ข้อมูลกลุ่ม vs ตรวจการบ้านกลุ่ม -->
+          <div style="display: flex; gap: 0.5rem; border-bottom: 2px solid #E2E8F0; margin-bottom: 1.25rem; padding-bottom: 0.25rem;">
+            <button type="button" id="subtabBtnGroups" class="ft-btn active" onclick="switchProjectSubtab('groups')" style="font-size: 0.92rem; padding: 0.6rem 1.2rem; border-radius: 10px;">
+              👥 ข้อมูลกลุ่มโครงงาน (<span id="subtabGroupCount">0</span>)
+            </button>
+            <button type="button" id="subtabBtnHomework" class="ft-btn" onclick="switchProjectSubtab('homework')" style="font-size: 0.92rem; padding: 0.6rem 1.2rem; border-radius: 10px;">
+              📁 ตรวจการบ้านกลุ่ม (<span id="subtabHwSubmittedCount">0</span>/<span id="subtabHwTotalCount">0</span> ส่งแล้ว)
+            </button>
+          </div>
+
+          <!-- ================= VIEW 1: จัดการกลุ่มโครงงาน ================= -->
+          <div id="subtabViewGroups">
+            <!-- ฟอร์มลงทะเบียนโครงงาน (ซ่อนไว้ก่อน) -->
+            <div id="projectFormCard" style="display: none; background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 20px; padding: 1.5rem; margin-bottom: 1.75rem; transition: all 0.3s ease;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h4 id="projectFormTitle" style="font-size: 1.05rem; font-weight: 800; color: #1E1B4B; margin: 0;">✍️ ฟอร์มบันทึกข้อมูลโครงงาน</h4>
+                <input type="hidden" id="editingProjectKey" value="">
+                <button type="button" style="background:#F1F5F9; color:#475569; border:1px solid #CBD5E1; padding:0.35rem 0.85rem; border-radius:8px; font-size:0.8rem; font-weight:700; cursor:pointer;" onclick="closeProjectForm()">✕ ปิดฟอร์ม</button>
+              </div>
+
+              <div id="projectMembersContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1rem;"></div>
+
+              <div style="margin-bottom: 1.25rem;">
+                <button type="button" class="btn-subtle" onclick="addProjectMemberField()" style="border: 1.5px dashed var(--primary-cyan); color: var(--primary-blue); font-weight: 800; padding: 0.5rem 1.2rem; border-radius: 10px;">
+                  ➕ เพิ่มสมาชิกในกลุ่ม
+                </button>
+              </div>
+
+              <div class="form-field" style="margin-bottom: 1.25rem;">
+                <label style="font-size: 0.88rem; font-weight: 800; color: #1E1B4B; display: block; margin-bottom: 0.45rem;">หัวข้อโครงงาน (Project Title):</label>
+                <input type="text" id="projectTitleInput" class="custom-input" placeholder="ระบุชื่อหัวข้อโครงงาน..." style="font-size: 0.95rem;">
+              </div>
+
+              <div style="display: flex; gap: 0.75rem;">
+                <button type="button" id="btnSubmitProject" class="btn-cyan-gradient" onclick="saveProjectGroup()">💾 บันทึกข้อมูลโครงงาน 🚀</button>
+                <button type="button" class="btn-subtle" onclick="closeProjectForm()">ยกเลิก</button>
+              </div>
             </div>
 
-            <!-- กล่องสมาชิกกลุ่มแบบไดนามิก -->
-            <div id="projectMembersContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-              <!-- รายการสมาชิกจะถูกสร้างด้วย JS -->
+            <!-- รายการกลุ่มทั้งหมด -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span class="title-bullet"></span>
+                <h3 class="card-section-title" style="margin:0;">📋 รายชื่อกลุ่มโครงงานทั้งหมด</h3>
+              </div>
+              <span style="font-size: 0.88rem; font-weight: 700; color: #475569; background: #F1F5F9; padding: 0.35rem 0.85rem; border-radius: 9999px;">
+                จำนวนกลุ่ม: <strong id="totalPairCount" style="color: var(--primary-blue);">0</strong> กลุ่ม
+              </span>
             </div>
 
-            <div style="margin-bottom: 1.25rem;">
-              <button type="button" class="btn-subtle" onclick="addProjectMemberField()" style="border: 1.5px dashed var(--primary-cyan); color: var(--primary-blue); font-weight: 800; padding: 0.5rem 1.2rem; border-radius: 10px;">
-                ➕ เพิ่มสมาชิกในกลุ่ม
+            <div class="table-scroll-area">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th style="width: 100px; text-align: center;">ลำดับกลุ่ม</th>
+                    <th style="min-width: 340px;">สมาชิกกลุ่ม</th>
+                    <th style="min-width: 250px;">หัวข้อโครงงาน</th>
+                    <th style="width: 140px; text-align: center;">การจัดการ</th>
+                  </tr>
+                </thead>
+                <tbody id="pairTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- ================= VIEW 2: ตรวจการบ้านกลุ่ม (รองรับตรวจย้อนหลัง) ================= -->
+          <div id="subtabViewHomework" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.8rem; background: #F8FAFC; padding: 0.9rem 1.25rem; border-radius: 14px; border: 1px solid #E2E8F0;">
+              <div style="display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                  <span class="title-bullet"></span>
+                  <h3 class="card-section-title" style="margin:0;">📁 รายการส่งการบ้านกลุ่ม:</h3>
+                </div>
+                <!-- 🎯 ตัวเลือกสัปดาห์สำหรับตรวจย้อนหลัง -->
+                <div class="session-dropdown-badge" style="background: white; border: 1.5px solid var(--primary-cyan);">
+                  <select id="groupHwSessionSelect" onchange="onGroupHwSessionChange(this.value)" style="font-size: 0.9rem; font-weight: 800; color: var(--primary-blue);"></select>
+                </div>
+              </div>
+              <button type="button" class="btn-subtle" onclick="loadGroupHomeworkData()" style="font-size: 0.82rem; font-weight: 700; background: white;">
+                🔄 รีเฟรชข้อมูล
               </button>
             </div>
 
-            <div class="form-field" style="margin-bottom: 1.25rem;">
-              <label style="font-size: 0.88rem; font-weight: 800; color: #1E1B4B; display: block; margin-bottom: 0.45rem;">หัวข้อโครงงาน (Project Title):</label>
-              <input type="text" id="projectTitleInput" class="custom-input" placeholder="ระบุชื่อหัวข้อโครงงานที่ได้รับมอบหมาย..." style="font-size: 0.95rem;">
-            </div>
-
-            <div style="display: flex; gap: 0.75rem;">
-              <button type="button" id="btnSubmitProject" class="btn-cyan-gradient" onclick="saveProjectGroup()">💾 บันทึกข้อมูลโครงงาน 🚀</button>
-              <button type="button" class="btn-subtle" onclick="closeProjectForm()">ยกเลิก</button>
+            <div class="table-scroll-area">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th style="width: 90px; text-align: center;">กลุ่มที่</th>
+                    <th style="min-width: 240px;">หัวข้อโครงงาน</th>
+                    <th style="min-width: 280px;">สมาชิกในกลุ่ม</th>
+                    <th style="width: 110px; text-align: center;">สถานะส่งงาน</th>
+                    <th style="min-width: 150px; text-align: center;">ไฟล์การบ้าน</th>
+                    <th style="width: 130px; text-align: center;">คะแนนกลุ่ม</th>
+                    <th style="width: 90px; text-align: center;">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody id="groupHwTableBody"></tbody>
+              </table>
             </div>
           </div>
 
-          <!-- ตารางแสดงรายละเอียดกลุ่มด้านล่าง -->
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-              <span class="title-bullet"></span>
-              <h3 class="card-section-title" style="margin:0;">📋 รายชื่อกลุ่มโครงงานทั้งหมด</h3>
-            </div>
-            <span style="font-size: 0.88rem; font-weight: 700; color: #475569; background: #F1F5F9; padding: 0.35rem 0.85rem; border-radius: 9999px;">
-              จำนวนกลุ่ม: <strong id="totalPairCount" style="color: var(--primary-blue);">0</strong> กลุ่ม
-            </span>
-          </div>
-
-          <div class="table-scroll-area">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th style="width: 100px; text-align: center;">ลำดับกลุ่ม</th>
-                  <th style="min-width: 340px;">สมาชิกกลุ่ม</th>
-                  <th style="min-width: 250px;">หัวข้อโครงงาน</th>
-                  <th style="width: 140px; text-align: center;">การจัดการ</th>
-                </tr>
-              </thead>
-              <tbody id="pairTableBody"></tbody>
-            </table>
-          </div>
         </section>
       </div>
 

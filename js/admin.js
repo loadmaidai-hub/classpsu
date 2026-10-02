@@ -40,6 +40,8 @@ let currentLocationLockConfig = {
 
 // ข้อมูลแคชของโครงงานกลุ่ม
 let currentProjectsData = {};
+let activeProjectSubtab = 'groups';
+let selectedGroupHwSession = currentSession; // สัปดาห์ที่เลือกตรวจการบ้านกลุ่มย้อนหลัง
 
 document.addEventListener("DOMContentLoaded", () => {
   if (!sessionStorage.getItem("adminAuthenticated")) {
@@ -78,6 +80,7 @@ function switchMainTab(tabId, navBtn) {
     if (pTab) pTab.classList.add('active-tab');
     if (titleEl) titleEl.innerText = 'จัดการโครงงานกลุ่ม (Project Management)';
     loadPairProjectsData();
+    initGroupHwSessionDropdown();
   } else if (tabId === 'classManager') {
     const cTab = document.getElementById('tabClassManagerView');
     if (cTab) cTab.classList.add('active-tab');
@@ -192,7 +195,9 @@ function initAdminDashboard() {
         currentSession = serverSession;
         localStorage.setItem('adminSelectedSession', currentSession);
       }
+      selectedGroupHwSession = currentSession;
       initSessionDropdown();
+      initGroupHwSessionDropdown();
       return fetch(`${baseUrl}courses.json`);
     })
     .then(r => r.json())
@@ -314,6 +319,10 @@ function onAdminSessionChange() {
 
   currentSession = sel.value;
   localStorage.setItem('adminSelectedSession', currentSession);
+  selectedGroupHwSession = currentSession;
+
+  const ghwSel = document.getElementById('groupHwSessionSelect');
+  if (ghwSel) ghwSel.value = currentSession;
 
   updateQuizActiveWeekLabel();
   loadSessionData();
@@ -321,6 +330,9 @@ function onAdminSessionChange() {
   loadLateThresholdTime();
   loadQuizSettings();
   loadQuizSubmissions();
+  if (activeProjectSubtab === 'homework') {
+    loadGroupHomeworkData();
+  }
 }
 
 function loadLateThresholdTime() {
@@ -633,6 +645,8 @@ function loadPairProjectsData() {
     .then(data => {
       currentProjectsData = data || {};
       renderProjectsTable(currentProjectsData);
+      const subtabCount = document.getElementById('subtabGroupCount');
+      if (subtabCount) subtabCount.innerText = Object.keys(currentProjectsData).length;
     })
     .catch(() => {
       currentProjectsData = {};
@@ -715,7 +729,7 @@ function renderProjectsTable(projectsObj) {
       </td>
       <td style="text-align: center; vertical-align: middle;">
         <div style="display: inline-flex; gap: 0.4rem;">
-          <button type="button" style="background:#E0F2FE; color:#0369A1; border:none; padding:0.4rem 0.75rem; border-radius:8px; font-weight:700; font-size:0.8rem; cursor:pointer;" onclick="editProjectGroup('${key}')">✏️️ แก้ไข</button>
+          <button type="button" style="background:#E0F2FE; color:#0369A1; border:none; padding:0.4rem 0.75rem; border-radius:8px; font-weight:700; font-size:0.8rem; cursor:pointer;" onclick="editProjectGroup('${key}')">✏ แก้ไข</button>
           <button type="button" style="background:#FEE2E2; color:#DC2626; border:none; padding:0.4rem 0.75rem; border-radius:8px; font-weight:700; font-size:0.8rem; cursor:pointer;" onclick="deleteProjectGroup('${key}')">🗑 ลบ</button>
         </div>
       </td>
@@ -789,8 +803,262 @@ function deleteProjectGroup(groupKey) {
 }
 
 // -------------------------------------------------------------
-// --- GROUP HOMEWORK UTILITY (ฟังก์ชันจัดการการบ้านแบบกลุ่ม) ---
+// --- SUBTABS & GROUP HOMEWORK REVIEW (ตรวจย้อนหลังได้ทุกวีค) ---
 // -------------------------------------------------------------
+
+function initGroupHwSessionDropdown() {
+  const sel = document.getElementById('groupHwSessionSelect');
+  if (sel && typeof CONFIG !== 'undefined' && CONFIG.SESSIONS) {
+    sel.innerHTML = CONFIG.SESSIONS.map(s => `<option value="${s}">📅 ตรวจการบ้าน: ${s}</option>`).join('');
+    sel.value = selectedGroupHwSession;
+  }
+}
+
+function onGroupHwSessionChange(newSession) {
+  selectedGroupHwSession = newSession;
+  loadGroupHomeworkData();
+}
+
+function switchProjectSubtab(subtab) {
+  activeProjectSubtab = subtab;
+  const btnGroups = document.getElementById('subtabBtnGroups');
+  const btnHw = document.getElementById('subtabBtnHomework');
+  const viewGroups = document.getElementById('subtabViewGroups');
+  const viewHw = document.getElementById('subtabViewHomework');
+  const addGroupAction = document.getElementById('projectAddGroupAction');
+
+  if (subtab === 'homework') {
+    btnGroups.classList.remove('active');
+    btnHw.classList.add('active');
+    viewGroups.style.display = 'none';
+    viewHw.style.display = 'block';
+    if (addGroupAction) addGroupAction.style.display = 'none';
+    initGroupHwSessionDropdown();
+    loadGroupHomeworkData();
+  } else {
+    btnHw.classList.remove('active');
+    btnGroups.classList.add('active');
+    viewHw.style.display = 'none';
+    viewGroups.style.display = 'block';
+    if (addGroupAction) addGroupAction.style.display = 'block';
+    renderProjectsTable(currentProjectsData);
+  }
+}
+
+async function loadGroupHomeworkData() {
+  const tbody = document.getElementById('groupHwTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 2rem; color: #64748B;">⏳ กำลังโหลดข้อมูลการบ้านกลุ่มของ [${selectedGroupHwSession}]...</td></tr>`;
+
+  if (typeof CONFIG === 'undefined' || !CONFIG.FIREBASE_DB_URL) return;
+
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+  const targetSessionSafe = (typeof sanitizeKey === 'function') ? sanitizeKey(selectedGroupHwSession) : selectedGroupHwSession;
+
+  try {
+    const attRes = await fetch(`${baseUrl}attendance/${activeCourseId}/${targetSessionSafe}.json`);
+    const attData = await attRes.json() || {};
+
+    const keys = Object.keys(currentProjectsData);
+    let submittedGroupCount = 0;
+
+    tbody.innerHTML = '';
+
+    if (keys.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 2rem; color: #94A3B8;">ยังไม่มีข้อมูลกลุ่มโครงงาน</td></tr>`;
+      return;
+    }
+
+    keys.forEach((key, groupIdx) => {
+      const p = currentProjectsData[key];
+
+      let membersList = [];
+      if (p.members && Array.isArray(p.members)) {
+        membersList = p.members;
+      } else {
+        if (p.member1Id) membersList.push({ id: p.member1Id, name: p.member1Name });
+        if (p.member2Id) membersList.push({ id: p.member2Id, name: p.member2Name });
+      }
+
+      let groupSubmission = null;
+      let groupScore = null;
+
+      for (const m of membersList) {
+        const rec = attData[m.id];
+        if (rec) {
+          if (!groupSubmission && (rec.fileUrl || rec.fileName)) {
+            groupSubmission = rec;
+          }
+          if (groupScore === null && rec.homeworkScore !== undefined && rec.homeworkScore !== null) {
+            groupScore = rec.homeworkScore;
+          }
+        }
+      }
+
+      const isSubmitted = !!groupSubmission;
+      if (isSubmitted) submittedGroupCount++;
+
+      let membersHtml = membersList.map((m, idx) => `
+        <div style="font-size:0.8rem; margin-bottom: 0.2rem;">
+          <b style="color:#0F172A;">#${idx+1} ${m.id}</b> <span style="color:#475569;">${m.name || activeRoster[m.id] || '-'}</span>
+        </div>
+      `).join('');
+
+      let statusBadge = isSubmitted 
+        ? `<span class="tag tag-submitted">ส่งแล้ว</span>` 
+        : `<span class="tag tag-waiting">ยังไม่ส่ง</span>`;
+
+      let fileActionHtml = '-';
+      if (isSubmitted) {
+        const fUrl = groupSubmission.fileUrl || (currentAssignmentConfig ? currentAssignmentConfig.folderUrl : '');
+        const fName = groupSubmission.fileName || 'เปิดดูไฟล์งาน';
+        const submitterText = groupSubmission.submittedBy ? `<div style="font-size:0.72rem; color:#64748B; margin-top:0.25rem;">ตัวแทนส่ง: ${groupSubmission.submittedBy} (${groupSubmission.submittedTime || ''})</div>` : '';
+        fileActionHtml = `
+          <button type="button" class="tag tag-submitted" style="border:none; cursor:pointer;" onclick="window.open('${fUrl}', '_blank')" title="${fName}">
+            📄 ดูชิ้นงาน
+          </button>
+          ${submitterText}
+        `;
+      }
+
+      const scoreVal = groupScore !== null ? groupScore : '';
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="text-align: center; font-weight: 800; color: var(--primary-blue); vertical-align: middle;">
+          กลุ่มที่ ${groupIdx + 1}
+        </td>
+        <td style="vertical-align: middle;">
+          <div style="font-weight: 800; color: #1E1B4B; font-size: 0.92rem;">${p.projectTitle}</div>
+        </td>
+        <td style="vertical-align: middle;">
+          ${membersHtml}
+        </td>
+        <td style="text-align: center; vertical-align: middle;">
+          ${statusBadge}
+        </td>
+        <td style="text-align: center; vertical-align: middle;">
+          ${fileActionHtml}
+        </td>
+        <td style="text-align: center; vertical-align: middle;">
+          <input type="number" class="score-input-live score-input-hw" style="width: 70px;" value="${scoreVal}" placeholder="-" 
+            onblur="saveGroupHomeworkScore('${key}', this)"
+            onkeydown="if(event.key==='Enter') this.blur();">
+        </td>
+        <td style="text-align: center; vertical-align: middle;">
+          ${isSubmitted ? `
+            <button type="button" style="background:#FEE2E2; color:#DC2626; border:none; padding:0.3rem 0.6rem; border-radius:6px; font-size:0.75rem; font-weight:700; cursor:pointer;" onclick="resetGroupHomeworkSubmission('${key}')">
+              🔄 รีเซ็ต
+            </button>
+          ` : '-'}
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    const subHwCount = document.getElementById('subtabHwSubmittedCount');
+    const subHwTotal = document.getElementById('subtabHwTotalCount');
+    if (subHwCount) subHwCount.innerText = submittedGroupCount;
+    if (subHwTotal) subHwTotal.innerText = keys.length;
+
+  } catch (err) {
+    console.error("Load group hw error:", err);
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 2rem; color: #EF4444;">เกิดข้อผิดพลาดในการโหลดข้อมูล</td></tr>`;
+  }
+}
+
+function saveGroupHomeworkScore(groupKey, inputEl) {
+  const p = currentProjectsData[groupKey];
+  if (!p) return;
+
+  const val = inputEl.value.trim();
+  const scoreNum = val === '' ? null : Number(val);
+
+  if (val !== '' && isNaN(scoreNum)) {
+    alert("กรุณากรอกคะแนนเป็นตัวเลข");
+    return;
+  }
+
+  let membersList = [];
+  if (p.members && Array.isArray(p.members)) membersList = p.members;
+  else {
+    if (p.member1Id) membersList.push({ id: p.member1Id });
+    if (p.member2Id) membersList.push({ id: p.member2Id });
+  }
+
+  const targetSessionSafe = (typeof sanitizeKey === 'function') ? sanitizeKey(selectedGroupHwSession) : selectedGroupHwSession;
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+
+  membersList.forEach(m => {
+    if (selectedGroupHwSession === currentSession) {
+      if (!sessionAttendance[m.id]) sessionAttendance[m.id] = {};
+      sessionAttendance[m.id].homeworkScore = scoreNum;
+    }
+
+    fetch(`${baseUrl}attendance/${activeCourseId}/${targetSessionSafe}/${m.id}.json`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ homeworkScore: scoreNum })
+    }).catch(err => console.error(err));
+  });
+
+  inputEl.style.borderColor = '#10B981';
+  setTimeout(() => { inputEl.style.borderColor = ''; }, 1000);
+  if (selectedGroupHwSession === currentSession) {
+    renderDashboardUI();
+  }
+}
+
+function resetGroupHomeworkSubmission(groupKey) {
+  const p = currentProjectsData[groupKey];
+  if (!p) return;
+
+  if (!confirm(`ต้องการรีเซ็ตการส่งการบ้านสัปดาห์ [${selectedGroupHwSession}] ของโครงงาน:\n"${p.projectTitle}"\n(สมาชิกทุกคนในกลุ่มนี้จะถูกรีเซ็ตสถานะการส่งงาน) ใช่หรือไม่?`)) {
+    return;
+  }
+
+  let membersList = [];
+  if (p.members && Array.isArray(p.members)) membersList = p.members;
+  else {
+    if (p.member1Id) membersList.push({ id: p.member1Id });
+    if (p.member2Id) membersList.push({ id: p.member2Id });
+  }
+
+  const targetSessionSafe = (typeof sanitizeKey === 'function') ? sanitizeKey(selectedGroupHwSession) : selectedGroupHwSession;
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+
+  const resetPayload = {
+    fileUrl: null,
+    fileName: null,
+    fileSize: null,
+    submittedTime: null,
+    submittedBy: null,
+    isGroupSubmission: null,
+    homeworkScore: null
+  };
+
+  membersList.forEach(m => {
+    if (selectedGroupHwSession === currentSession && sessionAttendance[m.id]) {
+      delete sessionAttendance[m.id].fileUrl;
+      delete sessionAttendance[m.id].fileName;
+      delete sessionAttendance[m.id].submittedTime;
+      delete sessionAttendance[m.id].submittedBy;
+      delete sessionAttendance[m.id].homeworkScore;
+    }
+
+    fetch(`${baseUrl}attendance/${activeCourseId}/${targetSessionSafe}/${m.id}.json`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(resetPayload)
+    }).catch(err => console.error(err));
+  });
+
+  alert(`✅ รีเซ็ตการส่งการบ้านของกลุ่มใน [${selectedGroupHwSession}] เรียบร้อยแล้ว`);
+  loadGroupHomeworkData();
+  if (selectedGroupHwSession === currentSession) {
+    renderDashboardUI();
+  }
+}
 
 /**
  * ฟังก์ชันช่วยค้นหาสมาชิกในกลุ่มเดียวกันจากฐานข้อมูลโครงงาน
@@ -921,7 +1189,6 @@ function renderDashboardUI() {
 
   const totalStudents = rosterIds.length;
   
-  // อัปเดตข้อมูลบนการ์ดภาพรวม
   const cTotal = document.getElementById('cardTotalStudents');
   const cSub = document.getElementById('cardSubmittedCount');
   const cPres = document.getElementById('cardPresentCount');
@@ -937,7 +1204,6 @@ function renderDashboardUI() {
   let avgScore = totalStudents > 0 ? (sumAllScores / totalStudents).toFixed(1) : 0;
   if (cAvg) cAvg.innerText = `${avgScore} คะแนน`;
 
-  // อัปเดตแถบความคืบหน้าสถิติห้องเรียน
   const sPres = document.getElementById('statBarPresent');
   const sLate = document.getElementById('statBarLate');
   const sAbs = document.getElementById('statBarAbsent');
@@ -965,7 +1231,6 @@ function renderDashboardUI() {
 
   rankedList.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
 
-  // เรนเดอร์ 5 อันดับสูงสุดในหน้าหลัก
   const modernContainer = document.getElementById('modernTopRankContainer');
   if (modernContainer) {
     modernContainer.innerHTML = '';
@@ -1017,9 +1282,6 @@ function openFilePreview(fileUrl) {
   window.open(fileUrl, '_blank');
 }
 
-/**
- * บันทึกคะแนน: รองรับการให้คะแนนการบ้านทั้งกลุ่ม
- */
 function saveSpecificScore(stId, field, inputEl) {
   const val = inputEl.value.trim();
   const scoreNum = val === '' ? null : Number(val);
@@ -1033,7 +1295,6 @@ function saveSpecificScore(stId, field, inputEl) {
   const { groupTitle, memberIds } = findGroupMembers(stId);
   let targetIds = [stId];
 
-  // ถ้าเป็นการกรอกคะแนนการบ้าน และนักเรียนมีกลุ่ม ให้ถามว่าต้องการให้คะแนนทั้งกลุ่มหรือไม่
   if (field === 'homeworkScore' && memberIds.length > 1 && scoreNum !== null) {
     const applyAll = confirm(`นักศึกษาคนนี้อยู่ในกลุ่ม: "${groupTitle}"\nต้องการให้คะแนนการบ้าน (${scoreNum} คะแนน) แก่สมาชิกทั้ง ${memberIds.length} คนเลยหรือไม่?`);
     if (applyAll) {
@@ -1171,7 +1432,7 @@ function confirmSaveStatus() {
   if (newStatus === 'PRESENT') {
     sessionAttendance[stId].attendanceScore = 100;
   } else if (newStatus === 'LATE') {
-    sessionAttendance[stId].attendanceScore = 50; // บังคับมาสายได้ 50 คะแนนถ้วน
+    sessionAttendance[stId].attendanceScore = 50;
   } else if (newStatus === 'LEAVE') {
     sessionAttendance[stId].attendanceScore = 0;
   } else {
@@ -1203,9 +1464,6 @@ function confirmSaveStatus() {
     .catch(() => setSystemStatus(false));
 }
 
-/**
- * รีเซ็ตการส่งการบ้าน: เลือกรีเซ็ตทั้งกลุ่มหรือเฉพาะรายบุคคล
- */
 function confirmResetStudentSubmission() {
   if (!currentEditingStudentId) return;
 
