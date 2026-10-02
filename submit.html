@@ -18,12 +18,9 @@
       padding: 0;
     }
 
-    /* ล็อคหน้าจอให้อยู่กึ่งกลางพอดี ไม่เลื่อน ไม่ Scroll */
     html, body {
       width: 100%;
-      height: 100vh;
-      max-height: 100vh;
-      overflow: hidden;
+      min-height: 100vh;
       background-color: #F8FAFC;
       font-family: var(--font-main);
       color: #1E293B;
@@ -31,6 +28,7 @@
       justify-content: center;
       align-items: center;
       -webkit-font-smoothing: antialiased;
+      padding: 1.2rem 0;
     }
 
     .submit-card {
@@ -107,6 +105,59 @@
       color: #D97706;
     }
 
+    /* กล่องข้อมูลกลุ่มโครงงานที่ตรวจพบ */
+    .group-notice-box {
+      display: none;
+      background: #F0F9FF;
+      border: 1.5px solid #BAE6FD;
+      border-radius: 14px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.95rem;
+      text-align: left;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .group-notice-title {
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: #0369A1;
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .group-project-name {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #0F172A;
+      margin-bottom: 0.4rem;
+    }
+
+    .group-members-list {
+      font-size: 0.76rem;
+      color: #475569;
+      line-height: 1.4;
+      padding-left: 1.2rem;
+    }
+
+    .group-sync-badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: #059669;
+      background: #ECFDF5;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      margin-top: 0.4rem;
+      border: 1px solid #A7F3D0;
+    }
+
     .form-group {
       margin-bottom: 0.8rem;
       text-align: left;
@@ -139,7 +190,8 @@
 
     .form-input.readonly {
       background: #F8FAFC;
-      color: #94A3B8;
+      color: #64748B;
+      font-weight: 600;
       cursor: not-allowed;
     }
 
@@ -203,6 +255,7 @@
       cursor: pointer;
       box-shadow: 0 4px 15px rgba(67, 56, 202, 0.25);
       margin-top: 0.3rem;
+      transition: background 0.2s;
     }
 
     .btn-submit:hover {
@@ -220,36 +273,45 @@
 
   <div class="submit-card">
     <div class="card-top-bar">
-      <div class="badge-status" id="assignmentStatusBadge">⚠️ ยังไม่เปิดรับการบ้าน</div>
-      <div class="badge-week" id="currentSessionLabel">Week 1</div>
+      <div class="badge-status" id="assignmentStatusBadge">⚠️ กำลังตรวจสอบสถานะ...</div>
+      <div class="badge-week" id="currentSessionLabel">สัปดาห์เรียน</div>
     </div>
 
     <h2 class="submit-title">📥 ส่งการบ้าน</h2>
 
+    <!-- กล่องคำแนะนำ -->
     <div class="instruction-box">
       <div class="inst-title">📌 ชื่อไฟล์: ตั้งชื่อไฟล์ให้ตรงตามรูปแบบ</div>
       <div class="inst-desc">[รหัสนักศึกษา] - [ชื่อ นามสกุล].[นามสกุลไฟล์]</div>
     </div>
 
-    <div class="form-group">
-      <label class="form-label">รหัสนักศึกษา (10 หลัก):</label>
-      <input type="text" id="studentIdInput" class="form-input" placeholder="เช่น 6730611001" maxlength="10" oninput="lookupStudentName()">
+    <!-- กล่องแจ้งเตือนข้อมูลกลุ่มโครงงาน -->
+    <div class="group-notice-box" id="groupNoticeBox">
+      <div class="group-notice-title">👥 พบข้อมูลโครงงานกลุ่มของคุณ:</div>
+      <div class="group-project-name" id="noticeProjectTitle">-</div>
+      <ol class="group-members-list" id="noticeMembersList"></ol>
+      <div class="group-sync-badge">✨ ตัวแทนส่ง 1 คน ระบบจะอัปเดตสถานะ "ส่งแล้ว" ให้เพื่อนในกลุ่มทุกคน</div>
     </div>
 
     <div class="form-group">
-      <label class="form-label">ชื่อ - นามสกุล:</label>
+      <label class="form-label" for="studentIdInput">รหัสนักศึกษา (10 หลัก):</label>
+      <input type="text" id="studentIdInput" class="form-input" placeholder="เช่น 6730611001" maxlength="10" oninput="lookupStudentAndGroup()">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="studentNameInput">ชื่อ - นามสกุล:</label>
       <input type="text" id="studentNameInput" class="form-input readonly" placeholder="ระบบจะแสดงอัตโนมัติ" readonly>
     </div>
 
     <div class="form-group">
       <label class="form-label">เลือกไฟล์ชิ้นงาน:</label>
-      <div class="dropzone-box" id="dropzoneBox">
+      <div class="dropzone-box" id="dropzoneBox" onclick="document.getElementById('fileInput').click()">
         <div class="dropzone-icon">📄</div>
-        <div class="dropzone-text">คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่</div>
+        <div class="dropzone-text" id="dropzoneMainText">คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่</div>
         <div class="dropzone-subtext">(ระบบจะส่งไฟล์ตรงเข้าโฟลเดอร์ของอาจารย์ทันที)</div>
         <div class="file-preview" id="filePreviewText"></div>
       </div>
-      <input type="file" id="fileInput" style="display: none;">
+      <input type="file" id="fileInput" style="display: none;" onchange="handleFileSelected(this.files)">
     </div>
 
     <button type="button" class="btn-submit" id="btnSubmitWork" onclick="submitHomework()">

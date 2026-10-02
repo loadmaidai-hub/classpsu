@@ -1,332 +1,271 @@
-// js/submit.js - ระบบส่งการบ้าน ตรวจสอบชื่อไฟล์ ดาวน์โหลดอัตโนมัติ และอัปโหลดตรงเข้า Google Drive (รับลิงก์พรีวิวไฟล์ตรง)
+// js/submit.js - ระบบส่งการบ้านแบบกลุ่ม (Group-based Homework Submission)
 
+let activeCourseId = "969-042G4";
 let currentSession = "Week 1";
-let activeCourseId = '969-042G4';
-let currentRoster = {};
-let allCoursesData = {};
-let assignmentConfig = null;
-let currentUploadFile = null;
-let countdownTimerInterval = null;
+let activeRoster = {};
+let currentAssignmentConfig = null;
+let selectedFile = null;
+let currentStudentGroup = null;
 
 document.addEventListener("DOMContentLoaded", () => {
   initSubmitPage();
-  setupDragAndDrop();
+  setupDropzone();
 });
 
-function initSubmitPage() {
+async function initSubmitPage() {
+  if (typeof CONFIG === 'undefined' || !CONFIG.FIREBASE_DB_URL) {
+    updateAssignmentStatus(false);
+    return;
+  }
+
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
 
-  fetch(`${baseUrl}current_session.json`)
-    .then(r => r.json())
-    .then(session => {
-      if (session) {
-        currentSession = session;
-        const weekLabel = document.getElementById('currentSessionLabel');
-        if (weekLabel) weekLabel.innerText = currentSession;
-      }
-      return fetch(`${baseUrl}courses.json`);
-    })
-    .then(r => r.json())
-    .then(courses => {
-      if (!courses) return;
-      allCoursesData = courses;
-      const cKeys = Object.keys(courses);
-      const savedCourse = localStorage.getItem('lastSelectedCourse');
-      activeCourseId = (savedCourse && courses[savedCourse]) ? savedCourse : cKeys[0];
+  try {
+    // 1. ดึงสัปดาห์เรียนปัจจุบัน
+    const sessRes = await fetch(`${baseUrl}current_session.json`);
+    const serverSession = await sessRes.json();
+    if (serverSession) {
+      currentSession = serverSession;
+    }
+    const sessLabel = document.getElementById('currentSessionLabel');
+    if (sessLabel) sessLabel.innerText = currentSession;
 
-      if (activeCourseId && courses[activeCourseId]) {
-        currentRoster = courses[activeCourseId].roster || {};
-      }
+    // 2. ดึงข้อมูลรายวิชาและ Roster
+    const courseRes = await fetch(`${baseUrl}courses/${activeCourseId}.json`);
+    const courseData = await courseRes.json();
+    if (courseData && courseData.roster) {
+      activeRoster = courseData.roster;
+    }
 
-      loadSessionAssignmentConfig();
-    })
-    .catch(err => console.error("Init Error:", err));
+    // 3. ตรวจสอบการเปิดรับการบ้านประจำสัปดาห์
+    const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
+    const cfgRes = await fetch(`${baseUrl}session_settings/${activeCourseId}/${safeSession}/assignmentConfig.json`);
+    currentAssignmentConfig = await cfgRes.json();
+
+    if (currentAssignmentConfig && currentAssignmentConfig.folderUrl) {
+      updateAssignmentStatus(true);
+    } else {
+      updateAssignmentStatus(false);
+    }
+
+  } catch (err) {
+    console.error("Init Error:", err);
+    updateAssignmentStatus(false);
+  }
 }
 
-function loadSessionAssignmentConfig() {
-  const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
-  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
-
-  fetch(`${baseUrl}session_settings/${activeCourseId}/${safeSession}/assignmentConfig.json`)
-    .then(r => r.json())
-    .then(cfg => {
-      assignmentConfig = cfg;
-      updateAssignmentStatusUI();
-    })
-    .catch(() => {
-      assignmentConfig = null;
-      updateAssignmentStatusUI();
-    });
-}
-
-function updateAssignmentStatusUI() {
+function updateAssignmentStatus(isOpen) {
   const badge = document.getElementById('assignmentStatusBadge');
   const btn = document.getElementById('btnSubmitWork');
   if (!badge || !btn) return;
 
-  if (countdownTimerInterval) {
-    clearInterval(countdownTimerInterval);
-    countdownTimerInterval = null;
-  }
-
-  if (!assignmentConfig || !assignmentConfig.folderUrl) {
-    badge.className = 'badge-status';
-    badge.innerText = '⚠️ ยังไม่เปิดรับการบ้าน';
-    btn.disabled = true;
-    return;
-  }
-
-  if (assignmentConfig.deadline) {
-    const deadlineTime = new Date(assignmentConfig.deadline).getTime();
-
-    const updateCountdown = () => {
-      const now = new Date().getTime();
-      const diff = deadlineTime - now;
-
-      if (diff <= 0) {
-        clearInterval(countdownTimerInterval);
-        countdownTimerInterval = null;
-        badge.className = 'badge-status';
-        badge.innerText = '❌ ปิดรับการบ้านแล้ว';
-        btn.disabled = true;
-        return;
-      }
-
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      const hStr = String(hours).padStart(2, '0');
-      const mStr = String(minutes).padStart(2, '0');
-      const sStr = String(seconds).padStart(2, '0');
-
-      badge.className = 'badge-status open';
-      badge.innerText = hours > 0 ? `⏳ เหลือเวลาอีก ${hStr}:${mStr}:${sStr}` : `⏳ เหลือเวลาอีก ${mStr}:${sStr} นาที`;
-      btn.disabled = false;
-    };
-
-    updateCountdown();
-    countdownTimerInterval = setInterval(updateCountdown, 1000);
-  } else {
+  if (isOpen) {
     badge.className = 'badge-status open';
-    badge.innerText = '✅ กำลังเปิดรับการบ้าน';
+    badge.innerText = '🟢 เปิดรับการบ้าน';
     btn.disabled = false;
+  } else {
+    badge.className = 'badge-status';
+    badge.innerText = '⚠️ ยังไม่เปิดรับการบ้านสัปดาห์นี้';
+    btn.disabled = true;
   }
 }
 
-function lookupStudentName() {
+// ค้นหาชื่อนักศึกษา และตรวจสอบกลุ่มโครงงานแบบเรียลไทม์
+async function lookupStudentAndGroup() {
   const idInput = document.getElementById('studentIdInput');
   const nameInput = document.getElementById('studentNameInput');
-  const val = idInput.value.trim();
+  const noticeBox = document.getElementById('groupNoticeBox');
+  if (!idInput || !nameInput) return;
 
-  if (typeof STUDENT_ROSTER !== 'undefined' && STUDENT_ROSTER[val]) {
-    nameInput.value = STUDENT_ROSTER[val];
-    nameInput.readOnly = true;
-    nameInput.classList.add('readonly');
-    return;
-  }
+  const stId = idInput.value.trim();
 
-  if (val.length === 10 && currentRoster[val]) {
-    nameInput.value = currentRoster[val];
-    nameInput.readOnly = true;
-    nameInput.classList.add('readonly');
-    return;
-  }
-
-  if (val.length === 10 && allCoursesData) {
-    for (let cId in allCoursesData) {
-      if (allCoursesData[cId].roster && allCoursesData[cId].roster[val]) {
-        nameInput.value = allCoursesData[cId].roster[val];
-        nameInput.readOnly = true;
-        nameInput.classList.add('readonly');
-        return;
-      }
-    }
-  }
-
-  if (val.length === 10) {
-    nameInput.value = '';
-    nameInput.readOnly = false;
-    nameInput.classList.remove('readonly');
-    nameInput.placeholder = "ไม่พบในระบบ กรุณากรอก ชื่อ-นามสกุล ของคุณ";
+  // ดึงชื่อนักศึกษาจาก Roster
+  if (stId.length >= 8 && activeRoster[stId]) {
+    nameInput.value = activeRoster[stId];
+    nameInput.style.color = "#059669";
   } else {
-    nameInput.value = '';
-    nameInput.readOnly = true;
-    nameInput.classList.add('readonly');
-    nameInput.placeholder = "ระบบจะแสดงอัตโนมัติ";
+    nameInput.value = "";
+    nameInput.placeholder = "ไม่พบรหัสนักศึกษา";
+    nameInput.style.color = "#DC2626";
+    if (noticeBox) noticeBox.style.display = "none";
+    currentStudentGroup = null;
+    return;
+  }
+
+  // ค้นหากลุ่มโครงงานใน Firebase
+  if (stId.length >= 8) {
+    await checkStudentGroup(stId);
   }
 }
 
-function setupDragAndDrop() {
-  const dropzone = document.getElementById('dropzoneBox');
-  const fileInput = document.getElementById('fileInput');
+async function checkStudentGroup(studentId) {
+  const noticeBox = document.getElementById('groupNoticeBox');
+  const titleEl = document.getElementById('noticeProjectTitle');
+  const listEl = document.getElementById('noticeMembersList');
+  if (!noticeBox || !titleEl || !listEl) return;
 
-  if (!dropzone || !fileInput) return;
+  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
 
-  dropzone.addEventListener('click', () => fileInput.click());
+  try {
+    const res = await fetch(`${baseUrl}pair_projects/${activeCourseId}.json`);
+    const allProjects = await res.json() || {};
 
-  fileInput.addEventListener('change', (e) => {
-    if (e.target.files && e.target.files[0]) {
-      handleSelectedFile(e.target.files[0]);
+    currentStudentGroup = null;
+
+    for (const groupKey in allProjects) {
+      const p = allProjects[groupKey];
+      let membersList = [];
+
+      if (p.members && Array.isArray(p.members)) {
+        membersList = p.members;
+      } else {
+        if (p.member1Id) membersList.push({ id: p.member1Id, name: p.member1Name });
+        if (p.member2Id) membersList.push({ id: p.member2Id, name: p.member2Name });
+      }
+
+      const isMember = membersList.some(m => String(m.id).trim() === String(studentId).trim());
+      if (isMember) {
+        currentStudentGroup = {
+          groupKey: groupKey,
+          projectTitle: p.projectTitle || 'โครงงานกลุ่ม',
+          members: membersList
+        };
+        break;
+      }
     }
-  });
+
+    if (currentStudentGroup) {
+      titleEl.innerText = `"${currentStudentGroup.projectTitle}"`;
+      listEl.innerHTML = currentStudentGroup.members.map(m => `
+        <li><b>${m.id}</b> - ${m.name || activeRoster[m.id] || ''}</li>
+      `).join('');
+      noticeBox.style.display = "block";
+    } else {
+      noticeBox.style.display = "none";
+    }
+
+  } catch (err) {
+    console.error("Group check error:", err);
+    noticeBox.style.display = "none";
+  }
+}
+
+// Drag & Drop File
+function setupDropzone() {
+  const zone = document.getElementById('dropzoneBox');
+  if (!zone) return;
 
   ['dragenter', 'dragover'].forEach(name => {
-    dropzone.addEventListener(name, (e) => {
+    zone.addEventListener(name, (e) => {
       e.preventDefault();
-      dropzone.classList.add('dragover');
+      zone.classList.add('dragover');
     });
   });
 
   ['dragleave', 'drop'].forEach(name => {
-    dropzone.addEventListener(name, (e) => {
+    zone.addEventListener(name, (e) => {
       e.preventDefault();
-      dropzone.classList.remove('dragover');
+      zone.classList.remove('dragover');
     });
   });
 
-  dropzone.addEventListener('drop', (e) => {
+  zone.addEventListener('drop', (e) => {
     e.preventDefault();
-    dropzone.classList.remove('dragover');
-    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleSelectedFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFileSelected(e.dataTransfer.files);
     }
   });
 }
 
-function handleSelectedFile(file) {
-  const stId = document.getElementById('studentIdInput').value.trim();
-  const stName = document.getElementById('studentNameInput').value.trim();
-
-  if (!stId || !stName) {
-    alert("⚠️ กรุณากรอกรหัสนักศึกษาให้ถูกต้องก่อนเลือกไฟล์ เพื่อให้ระบบช่วยตั้งชื่อไฟล์ได้ถูกต้อง");
-    const fileInput = document.getElementById('fileInput');
-    if (fileInput) fileInput.value = '';
-    return;
-  }
-
-  const dotIdx = file.name.lastIndexOf('.');
-  const ext = dotIdx !== -1 ? file.name.substring(dotIdx) : '';
-  const standardName = `${stId} - ${stName}${ext}`;
-
-  if (file.name !== standardName) {
-    alert(`⚠️ ชื่อไฟล์เดิมไม่ถูกต้อง: "${file.name}"\n\nระบบดำเนินการเปลี่ยนชื่อไฟล์เป็น:\n"${standardName}"\nและได้ดาวน์โหลดไฟล์ที่ถูกต้องลงเครื่องของคุณแล้ว`);
-
-    const blobUrl = URL.createObjectURL(file);
-    const a = document.createElement('a');
-    a.href = blobUrl;
-    a.download = standardName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(blobUrl);
-
-    currentUploadFile = new File([file], standardName, { type: file.type });
-  } else {
-    currentUploadFile = file;
-  }
+function handleFileSelected(files) {
+  if (!files || files.length === 0) return;
+  selectedFile = files[0];
 
   const preview = document.getElementById('filePreviewText');
-  if (preview) {
+  const mainText = document.getElementById('dropzoneMainText');
+
+  if (preview && mainText) {
+    preview.innerText = `📎 ${selectedFile.name} (${(selectedFile.size / 1024 / 1024).toFixed(2)} MB)`;
     preview.style.display = 'block';
-    preview.innerText = `📄 พร้อมส่ง: ${currentUploadFile.name} (${(currentUploadFile.size / 1024 / 1024).toFixed(2)} MB)`;
+    mainText.innerText = 'เลือกไฟล์เรียบร้อยแล้ว';
   }
 }
 
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result.split(',')[1]);
-    reader.onerror = err => reject(err);
-  });
-}
-
+// ส่งการบ้านแบบผูกกลุ่มอัตโนมัติ (Group-based Submission)
 async function submitHomework() {
   const stId = document.getElementById('studentIdInput').value.trim();
   const stName = document.getElementById('studentNameInput').value.trim();
 
-  if (!stId || !stName) return alert("กรุณากรอกรหัสนักศึกษาและชื่อ-นามสกุลให้ครบถ้วน");
-  if (!currentUploadFile) return alert("กรุณาเลือกไฟล์ชิ้นงานที่ต้องการส่ง");
-  if (!assignmentConfig || !assignmentConfig.folderUrl) return alert("ไม่พบข้อมูลโฟลเดอร์รับงานของอาจารย์");
+  if (!stId || !stName || stName.includes("ไม่พบ")) {
+    return alert("กรุณากรอกรหัสนักศึกษาที่ถูกต้อง");
+  }
 
-  const scriptUrl = (typeof CONFIG !== 'undefined' && (CONFIG.GAS_UPLOAD_URL || CONFIG.GOOGLE_SCRIPT_URL || CONFIG.UPLOAD_SCRIPT_URL))
-    ? (CONFIG.GAS_UPLOAD_URL || CONFIG.GOOGLE_SCRIPT_URL || CONFIG.UPLOAD_SCRIPT_URL)
-    : "";
+  if (!selectedFile) {
+    return alert("กรุณาเลือกไฟล์ชิ้นงานที่ต้องการส่ง");
+  }
 
-  if (!scriptUrl || !scriptUrl.includes('script.google.com')) {
-    return alert("❌ ไม่พบลิงก์ Google Apps Script ใน config.js กรุณาตรวจสอบ");
+  if (!currentAssignmentConfig || !currentAssignmentConfig.folderUrl) {
+    return alert("อาจารย์ยังไม่ได้ตั้งค่าโฟลเดอร์สำหรับรับงานสัปดาห์นี้");
   }
 
   const btn = document.getElementById('btnSubmitWork');
   btn.disabled = true;
-  btn.innerText = "⏳ กำลังตรวจสอบสถานะการส่ง...";
+  btn.innerText = "⏳ กำลังส่งงาน...";
 
-  const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+  const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
+  const now = new Date();
+  const timeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+  // กำหนดรายชื่อที่จะได้รับสถานะส่งแล้ว (ถ้ามีกลุ่ม จะส่งให้ทุกคนในกลุ่ม)
+  let targetMembers = [{ id: stId, name: stName }];
+  if (currentStudentGroup && currentStudentGroup.members && currentStudentGroup.members.length > 0) {
+    targetMembers = currentStudentGroup.members;
+  }
+
+  const payload = {
+    fileUrl: currentAssignmentConfig.folderUrl,
+    fileName: selectedFile.name,
+    fileSize: `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB`,
+    submittedTime: timeString,
+    submittedBy: stId,
+    isGroupSubmission: targetMembers.length > 1
+  };
 
   try {
-    // ตรวจสอบการส่งซ้ำ
-    const checkRes = await fetch(`${baseUrl}attendance/${activeCourseId}/${safeSession}/${stId}.json`);
-    const studentData = await checkRes.json();
-
-    if (studentData && (studentData.fileName || studentData.submittedTime)) {
-      alert(`❌ คุณได้ส่งการบ้านไปแล้วเมื่อเวลา ${studentData.submittedTime || '-'}\n(ระบบอนุญาตให้ส่งได้เพียงครั้งเดียว หากต้องการส่งใหม่ กรุณาติดต่ออาจารย์ผู้สอนเพื่อขอรีเซ็ต)`);
-      btn.disabled = false;
-      btn.innerText = "🚀 ส่งการบ้าน";
-      return;
-    }
-
-    btn.innerText = "⏳ กำลังส่งไฟล์เข้าโฟลเดอร์...";
-
-    const base64Data = await fileToBase64(currentUploadFile);
-
-    const payload = {
-      folderUrl: assignmentConfig.folderUrl,
-      fileName: currentUploadFile.name,
-      fileData: base64Data,
-      mimeType: currentUploadFile.type || "application/octet-stream"
-    };
-
-    // ส่งเข้า Apps Script และรอรับค่า JSON ที่มี fileUrl กลับมา
-    let directFileUrl = assignmentConfig.folderUrl;
-    try {
-      const res = await fetch(scriptUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
+    // ส่งข้อมูลบันทึกลง Firebase ของสมาชิกทุกคนในกลุ่มพร้อมกัน (Parallel Patch)
+    const tasks = targetMembers.map(m => {
+      return fetch(`${baseUrl}attendance/${activeCourseId}/${safeSession}/${m.id}.json`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-      const resJson = await res.json();
-      if (resJson && resJson.fileUrl) {
-        directFileUrl = resJson.fileUrl; // ได้ลิงก์ https://drive.google.com/file/d/.../view ตรงๆ
-      }
-    } catch (e) {
-      console.warn("Could not parse JSON response directly, saving fallback folder URL", e);
-    }
-
-    // บันทึกสถานะเข้า Firebase
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-    const attendancePayload = {
-      fileName: currentUploadFile.name,
-      fileSize: `${(currentUploadFile.size / 1024 / 1024).toFixed(2)} MB`,
-      submittedTime: timeStr,
-      fileUrl: directFileUrl
-    };
-
-    await fetch(`${baseUrl}attendance/${activeCourseId}/${safeSession}/${stId}.json`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(attendancePayload)
     });
 
-    alert(`✅ ส่งการบ้านสำเร็จเรียบร้อย!\nไฟล์: ${currentUploadFile.name}\n(ระบบส่งตรงเข้าโฟลเดอร์โฟลเดอร์ของอาจารย์เรียบร้อยแล้ว)`);
-    window.location.reload();
+    await Promise.all(tasks);
+
+    // เปิดโฟลเดอร์ Google Drive ของอาจารย์เพื่อให้วาง/อัปโหลดไฟล์จริง
+    window.open(currentAssignmentConfig.folderUrl, '_blank');
+
+    if (targetMembers.length > 1) {
+      alert(`✅ ส่งการบ้านกลุ่มสำเร็จ!\n\nโครงงาน: "${currentStudentGroup.projectTitle}"\nระบบได้อัปเดตสถานะ "ส่งแล้ว" ให้สมาชิกทั้ง ${targetMembers.length} คนเรียบร้อยแล้ว`);
+    } else {
+      alert("✅ บันทึกสถานะการส่งการบ้านสำเร็จเรียบร้อยแล้ว");
+    }
+
+    // รีเซ็ตฟอร์ม
+    document.getElementById('studentIdInput').value = '';
+    document.getElementById('studentNameInput').value = '';
+    document.getElementById('filePreviewText').style.display = 'none';
+    document.getElementById('dropzoneMainText').innerText = 'คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่';
+    document.getElementById('groupNoticeBox').style.display = 'none';
+    selectedFile = null;
+    currentStudentGroup = null;
 
   } catch (err) {
-    console.error("Submit Error:", err);
-    alert("❌ เกิดข้อผิดพลาดในการส่ง กรุณาลองใหม่อีกครั้ง");
+    console.error("Submit error:", err);
+    alert("❌ เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง");
+  } finally {
     btn.disabled = false;
     btn.innerText = "🚀 ส่งการบ้าน";
   }

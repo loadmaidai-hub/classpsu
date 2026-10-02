@@ -38,7 +38,7 @@ let currentLocationLockConfig = {
   radius: 50
 };
 
-// ข้อมูลแคชของโปรเจกต์กลุ่ม
+// ข้อมูลแคชของโครงงานกลุ่ม
 let currentProjectsData = {};
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -139,6 +139,7 @@ function setupKeyboardShortcuts() {
       closeSettingsModal();
       closeOverviewModal();
       closeQuizEvidenceModal();
+      if (typeof closeProjectForm === 'function') closeProjectForm();
       toggleSidebar(false);
       return;
     }
@@ -482,11 +483,24 @@ function saveLocationLockSettings() {
 // --- DYNAMIC PROJECT MEMBERS LOGIC (จัดการโครงงานกลุ่ม) ---
 // -------------------------------------------------------------
 
+function openNewProjectForm() {
+  const card = document.getElementById('projectFormCard');
+  if (!card) return;
+  cancelEditProject();
+  card.style.display = 'block';
+  card.scrollIntoView({ behavior: 'smooth' });
+}
+
+function closeProjectForm() {
+  const card = document.getElementById('projectFormCard');
+  if (card) card.style.display = 'none';
+  cancelEditProject();
+}
+
 function initProjectMembersForm() {
   const container = document.getElementById('projectMembersContainer');
   if (!container) return;
   container.innerHTML = '';
-  // สร้างสมาชิกเริ่มต้น 2 ช่อง
   addProjectMemberField();
   addProjectMemberField();
 }
@@ -520,7 +534,6 @@ function removeProjectMemberField(btn) {
   const box = btn.closest('.project-member-field-box');
   if (!box) return;
   box.remove();
-  // อัปเดตตัวเลขลำดับสมาชิกใหม่
   const container = document.getElementById('projectMembersContainer');
   Array.from(container.children).forEach((el, idx) => {
     const lbl = el.querySelector('.member-idx-label');
@@ -557,7 +570,7 @@ function saveProjectGroup() {
   let members = [];
   let hasInvalid = false;
 
-  boxes.forEach((box, idx) => {
+  boxes.forEach((box) => {
     const idVal = box.querySelector('.pm-id-input').value.trim();
     const nameVal = box.querySelector('.pm-name-input').value.trim();
 
@@ -585,8 +598,6 @@ function saveProjectGroup() {
   if (typeof CONFIG === 'undefined' || !CONFIG.FIREBASE_DB_URL) return;
 
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
-  
-  // ใช้ key เดิมถ้ากำลังแก้ไข หรือใช้รหัสนักศึกษาคนแรกเป็น key
   const groupKey = editingKey || (members[0].id + '_' + Date.now().toString().slice(-4));
   
   const payload = {
@@ -603,7 +614,7 @@ function saveProjectGroup() {
   })
   .then(() => {
     alert("✅ บันทึกข้อมูลโครงงานกลุ่มเรียบร้อยแล้ว");
-    cancelEditProject();
+    closeProjectForm();
     loadPairProjectsData();
   })
   .catch(err => {
@@ -640,7 +651,7 @@ function renderProjectsTable(projectsObj) {
     tbody.innerHTML = `
       <tr>
         <td colspan="4" style="text-align:center; padding: 2rem; color: #94A3B8;">
-          ยังไม่มีข้อมูลกลุ่มโครงงานในรายวิชานี้ กรอกฟอร์มด้านบนเพื่อลงทะเบียนกลุ่ม
+          ยังไม่มีข้อมูลกลุ่มโครงงานในรายวิชานี้ กดปุ่ม "➕ เพิ่มกลุ่มโครงงานใหม่" ด้านบนเพื่อเริ่มลงทะเบียน
         </td>
       </tr>
     `;
@@ -654,7 +665,6 @@ function renderProjectsTable(projectsObj) {
     const tr = document.createElement('tr');
     tr.style.borderBottom = "1px solid #F1F5F9";
 
-    // รองรับทั้งโครงสร้าง members array แบบใหม่ และ member1/2 แบบเดิม
     let membersList = [];
     if (p.members && Array.isArray(p.members)) {
       membersList = p.members;
@@ -663,15 +673,14 @@ function renderProjectsTable(projectsObj) {
       if (p.member2Id) membersList.push({ id: p.member2Id, name: p.member2Name });
     }
 
-    // สร้างตารางย่อยแสดงสมาชิกตามตัวอย่างในภาพ
     let membersHtml = `
-      <div style="background: white; border-radius: 10px; border: 1px solid #EDF2F7; overflow: hidden;">
+      <div style="background: white; border-radius: 10px; border: 1px solid #EDF2F7; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
         <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
           <thead>
             <tr style="background: #F8FAFC; color: #64748B; border-bottom: 1px solid #EDF2F7;">
-              <th style="padding: 0.4rem 0.6rem; font-weight: 700; width: 60px;">อันดับ</th>
-              <th style="padding: 0.4rem 0.6rem; font-weight: 700; width: 110px;">รหัส</th>
-              <th style="padding: 0.4rem 0.6rem; font-weight: 700;">ชื่อ - นามสกุล</th>
+              <th style="padding: 0.45rem 0.6rem; font-weight: 700; width: 60px;">อันดับ</th>
+              <th style="padding: 0.45rem 0.6rem; font-weight: 700; width: 110px;">รหัส</th>
+              <th style="padding: 0.45rem 0.6rem; font-weight: 700;">ชื่อ - นามสกุล</th>
             </tr>
           </thead>
           <tbody>
@@ -706,8 +715,8 @@ function renderProjectsTable(projectsObj) {
       </td>
       <td style="text-align: center; vertical-align: middle;">
         <div style="display: inline-flex; gap: 0.4rem;">
-          <button type="button" style="background:#E0F2FE; color:#0369A1; border:none; padding:0.4rem 0.75rem; border-radius:8px; font-weight:700; font-size:0.8rem; cursor:pointer;" onclick="editProjectGroup('${key}')">✏️ แก้ไข</button>
-          <button type="button" style="background:#FEE2E2; color:#DC2626; border:none; padding:0.4rem 0.75rem; border-radius:8px; font-weight:700; font-size:0.8rem; cursor:pointer;" onclick="deleteProjectGroup('${key}')">🗑️ ลบ</button>
+          <button type="button" style="background:#E0F2FE; color:#0369A1; border:none; padding:0.4rem 0.75rem; border-radius:8px; font-weight:700; font-size:0.8rem; cursor:pointer;" onclick="editProjectGroup('${key}')">✏️️ แก้ไข</button>
+          <button type="button" style="background:#FEE2E2; color:#DC2626; border:none; padding:0.4rem 0.75rem; border-radius:8px; font-weight:700; font-size:0.8rem; cursor:pointer;" onclick="deleteProjectGroup('${key}')">🗑 ลบ</button>
         </div>
       </td>
     `;
@@ -722,13 +731,14 @@ function editProjectGroup(groupKey) {
   const p = currentProjectsData[groupKey];
   if (!p) return;
 
+  const card = document.getElementById('projectFormCard');
+  if (card) card.style.display = 'block';
+
   document.getElementById('editingProjectKey').value = groupKey;
   document.getElementById('projectTitleInput').value = p.projectTitle || '';
   document.getElementById('projectFormTitle').innerText = '✏️ แก้ไขข้อมูลโครงงานกลุ่ม';
   document.getElementById('btnSubmitProject').innerText = '💾 บันทึกการเปลี่ยนแปลง';
-  document.getElementById('btnCancelEditProject').style.display = 'inline-block';
 
-  // เติมข้อมูลสมาชิกกลับเข้าสู่ฟอร์ม
   const container = document.getElementById('projectMembersContainer');
   container.innerHTML = '';
 
@@ -749,8 +759,7 @@ function editProjectGroup(groupKey) {
     });
   }
 
-  // เลื่อนจอขึ้นมาที่ฟอร์ม
-  document.getElementById('projectFormTitle').scrollIntoView({ behavior: 'smooth' });
+  card.scrollIntoView({ behavior: 'smooth' });
 }
 
 function cancelEditProject() {
@@ -758,7 +767,6 @@ function cancelEditProject() {
   document.getElementById('projectTitleInput').value = '';
   document.getElementById('projectFormTitle').innerText = '✍️ ฟอร์มบันทึกข้อมูลโครงงาน';
   document.getElementById('btnSubmitProject').innerText = '💾 บันทึกข้อมูลโครงงาน 🚀';
-  document.getElementById('btnCancelEditProject').style.display = 'none';
   initProjectMembersForm();
 }
 
@@ -773,11 +781,37 @@ function deleteProjectGroup(groupKey) {
   })
   .then(() => {
     if (document.getElementById('editingProjectKey').value === groupKey) {
-      cancelEditProject();
+      closeProjectForm();
     }
     loadPairProjectsData();
   })
   .catch(err => console.error(err));
+}
+
+// -------------------------------------------------------------
+// --- GROUP HOMEWORK UTILITY (ฟังก์ชันจัดการการบ้านแบบกลุ่ม) ---
+// -------------------------------------------------------------
+
+/**
+ * ฟังก์ชันช่วยค้นหาสมาชิกในกลุ่มเดียวกันจากฐานข้อมูลโครงงาน
+ */
+function findGroupMembers(studentId) {
+  for (const groupKey in currentProjectsData) {
+    const p = currentProjectsData[groupKey];
+    let memberIds = [];
+
+    if (p.members && Array.isArray(p.members)) {
+      memberIds = p.members.map(m => m.id);
+    } else {
+      if (p.member1Id) memberIds.push(p.member1Id);
+      if (p.member2Id) memberIds.push(p.member2Id);
+    }
+
+    if (memberIds.includes(studentId)) {
+      return { groupTitle: p.projectTitle, memberIds };
+    }
+  }
+  return { groupTitle: null, memberIds: [studentId] };
 }
 
 // -------------------------------------------------------------
@@ -887,7 +921,7 @@ function renderDashboardUI() {
 
   const totalStudents = rosterIds.length;
   
-  // อัปเดตข้อมูลบนการ์ดภาพรวม (แสดงตามรายวิชาที่เลือก)
+  // อัปเดตข้อมูลบนการ์ดภาพรวม
   const cTotal = document.getElementById('cardTotalStudents');
   const cSub = document.getElementById('cardSubmittedCount');
   const cPres = document.getElementById('cardPresentCount');
@@ -929,7 +963,7 @@ function renderDashboardUI() {
   const countAll = document.getElementById('countAll');
   if (countAll) countAll.innerText = totalStudents;
 
-  rankedList.sort((a, b) => b.totalScore - a.totalScore);
+  rankedList.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
 
   // เรนเดอร์ 5 อันดับสูงสุดในหน้าหลัก
   const modernContainer = document.getElementById('modernTopRankContainer');
@@ -983,6 +1017,9 @@ function openFilePreview(fileUrl) {
   window.open(fileUrl, '_blank');
 }
 
+/**
+ * บันทึกคะแนน: รองรับการให้คะแนนการบ้านทั้งกลุ่ม
+ */
 function saveSpecificScore(stId, field, inputEl) {
   const val = inputEl.value.trim();
   const scoreNum = val === '' ? null : Number(val);
@@ -993,40 +1030,41 @@ function saveSpecificScore(stId, field, inputEl) {
     return;
   }
 
-  if (!sessionAttendance[stId]) sessionAttendance[stId] = {};
-  sessionAttendance[stId][field] = scoreNum;
-  if (field === 'quizScore') sessionAttendance[stId].score = scoreNum;
+  const { groupTitle, memberIds } = findGroupMembers(stId);
+  let targetIds = [stId];
 
-  const rowEl = inputEl.closest('tr');
-  if (rowEl) {
-    const attVal = Number(rowEl.querySelector('.score-input-att').value) || 0;
-    const qVal = Number(rowEl.querySelector('.score-input-quiz').value) || 0;
-    const hwVal = Number(rowEl.querySelector('.score-input-hw').value) || 0;
-    const totalBadge = rowEl.querySelector('.total-score-badge');
-    if (totalBadge) totalBadge.innerText = (attVal + qVal + hwVal);
+  // ถ้าเป็นการกรอกคะแนนการบ้าน และนักเรียนมีกลุ่ม ให้ถามว่าต้องการให้คะแนนทั้งกลุ่มหรือไม่
+  if (field === 'homeworkScore' && memberIds.length > 1 && scoreNum !== null) {
+    const applyAll = confirm(`นักศึกษาคนนี้อยู่ในกลุ่ม: "${groupTitle}"\nต้องการให้คะแนนการบ้าน (${scoreNum} คะแนน) แก่สมาชิกทั้ง ${memberIds.length} คนเลยหรือไม่?`);
+    if (applyAll) {
+      targetIds = memberIds;
+    }
   }
-
-  inputEl.style.borderColor = '#10B981';
-  setTimeout(() => { inputEl.style.borderColor = ''; }, 1000);
-
-  if (typeof CONFIG === 'undefined' || !CONFIG.FIREBASE_DB_URL) return;
 
   const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
 
-  const payload = {};
-  payload[field] = scoreNum;
-  if (field === 'quizScore') payload['score'] = scoreNum;
+  targetIds.forEach(targetId => {
+    if (!sessionAttendance[targetId]) sessionAttendance[targetId] = {};
+    sessionAttendance[targetId][field] = scoreNum;
+    if (field === 'quizScore') sessionAttendance[targetId].score = scoreNum;
 
-  fetch(`${baseUrl}attendance/${activeCourseId}/${safeSession}/${stId}.json`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  }).then(() => setSystemStatus(true))
-    .catch(err => {
-      console.error("Save score error:", err);
-      setSystemStatus(false);
-    });
+    if (typeof CONFIG !== 'undefined' && CONFIG.FIREBASE_DB_URL) {
+      const payload = {};
+      payload[field] = scoreNum;
+      if (field === 'quizScore') payload['score'] = scoreNum;
+
+      fetch(`${baseUrl}attendance/${activeCourseId}/${safeSession}/${targetId}.json`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      }).catch(err => console.error("Save score error:", err));
+    }
+  });
+
+  inputEl.style.borderColor = '#10B981';
+  setTimeout(() => { inputEl.style.borderColor = ''; }, 1000);
+  renderDashboardUI();
 }
 
 function renderTableRows(rankedList) {
@@ -1053,7 +1091,8 @@ function renderTableRows(rankedList) {
     let fileDisplay = '<span class="tag tag-waiting">ยังไม่ส่ง</span>';
     if (hasFile) {
       const targetUrl = rec.fileUrl || (currentAssignmentConfig && currentAssignmentConfig.folderUrl ? currentAssignmentConfig.folderUrl : '');
-      fileDisplay = `<span onclick="openFilePreview('${targetUrl}')" class="tag tag-submitted" title="${rec.fileName || 'เปิดดูชิ้นงาน'}">📄 ดูชิ้นงาน</span>`;
+      const groupNote = rec.isGroupSubmission ? ' (งานกลุ่ม)' : '';
+      fileDisplay = `<span onclick="openFilePreview('${targetUrl}')" class="tag tag-submitted" title="${rec.fileName || 'เปิดดูชิ้นงาน'}${groupNote}">📄 ดูชิ้นงาน</span>`;
     }
 
     const ipDisplay = rec.ip || rec.ipAddress || '-';
@@ -1164,28 +1203,26 @@ function confirmSaveStatus() {
     .catch(() => setSystemStatus(false));
 }
 
+/**
+ * รีเซ็ตการส่งการบ้าน: เลือกรีเซ็ตทั้งกลุ่มหรือเฉพาะรายบุคคล
+ */
 function confirmResetStudentSubmission() {
   if (!currentEditingStudentId) return;
 
   const stId = currentEditingStudentId;
   const studentName = activeRoster[stId] || stId;
+  const { groupTitle, memberIds } = findGroupMembers(stId);
 
-  if (!confirm(`ต้องการรีเซ็ตการส่งการบ้านของ:\n"${studentName} (${stId})"\nใช่หรือไม่?`)) {
-    return;
+  let targetIds = [stId];
+
+  if (memberIds.length > 1) {
+    const resetAll = confirm(`"${studentName}" อยู่ในกลุ่ม: "${groupTitle}"\n\n- กด [ตกลง / OK] เพื่อรีเซ็ตการส่งงานของ "สมาชิกทั้งกลุ่ม" (${memberIds.length} คน)\n- กด [ยกเลิก / Cancel] เพื่อรีเซ็ตเฉพาะคนนี้`);
+    if (resetAll) {
+      targetIds = memberIds;
+    }
+  } else {
+    if (!confirm(`ต้องการรีเซ็ตการส่งการบ้านของ "${studentName}" ใช่หรือไม่?`)) return;
   }
-
-  if (sessionAttendance[stId]) {
-    delete sessionAttendance[stId].fileUrl;
-    delete sessionAttendance[stId].fileName;
-    delete sessionAttendance[stId].fileSize;
-    delete sessionAttendance[stId].submittedTime;
-    delete sessionAttendance[stId].homeworkScore;
-  }
-  alert("✅ รีเซ็ตการส่งการบ้านของนักศึกษาเรียบร้อยแล้ว");
-  closeStatusModal();
-  renderDashboardUI();
-
-  if (typeof CONFIG === 'undefined' || !CONFIG.FIREBASE_DB_URL) return;
 
   const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
   const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
@@ -1195,15 +1232,34 @@ function confirmResetStudentSubmission() {
     fileName: null,
     fileSize: null,
     submittedTime: null,
+    submittedBy: null,
+    isGroupSubmission: null,
     homeworkScore: null
   };
 
-  fetch(`${baseUrl}attendance/${activeCourseId}/${safeSession}/${stId}.json`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(resetHwPayload)
-  }).then(() => setSystemStatus(true))
-    .catch(() => setSystemStatus(false));
+  targetIds.forEach(targetId => {
+    if (sessionAttendance[targetId]) {
+      delete sessionAttendance[targetId].fileUrl;
+      delete sessionAttendance[targetId].fileName;
+      delete sessionAttendance[targetId].fileSize;
+      delete sessionAttendance[targetId].submittedTime;
+      delete sessionAttendance[targetId].submittedBy;
+      delete sessionAttendance[targetId].isGroupSubmission;
+      delete sessionAttendance[targetId].homeworkScore;
+    }
+
+    if (typeof CONFIG !== 'undefined' && CONFIG.FIREBASE_DB_URL) {
+      fetch(`${baseUrl}attendance/${activeCourseId}/${safeSession}/${targetId}.json`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(resetHwPayload)
+      }).catch(err => console.error(err));
+    }
+  });
+
+  alert("✅ รีเซ็ตการส่งการบ้านเรียบร้อยแล้ว");
+  closeStatusModal();
+  renderDashboardUI();
 }
 
 function confirmFullResetStudent() {
@@ -1228,6 +1284,8 @@ function confirmFullResetStudent() {
     delete sessionAttendance[stId].fileName;
     delete sessionAttendance[stId].fileSize;
     delete sessionAttendance[stId].submittedTime;
+    delete sessionAttendance[stId].submittedBy;
+    delete sessionAttendance[stId].isGroupSubmission;
     delete sessionAttendance[stId].ip;
     delete sessionAttendance[stId].ipAddress;
   }
@@ -1253,6 +1311,8 @@ function confirmFullResetStudent() {
     fileName: null,
     fileSize: null,
     submittedTime: null,
+    submittedBy: null,
+    isGroupSubmission: null,
     ip: null,
     ipAddress: null
   };
@@ -2000,59 +2060,4 @@ function filterStudentTable() {
 function logoutAdmin() {
   sessionStorage.removeItem("adminAuthenticated");
   window.location.href = "teacher.html";
-}
-
-// ฟังก์ชันเปิดฟอร์มเพื่อเพิ่มกลุ่มใหม่
-function openNewProjectForm() {
-  const card = document.getElementById('projectFormCard');
-  if (!card) return;
-  
-  cancelEditProject(); // เคลียร์ฟอร์มเป็นค่าเริ่มต้น 2 คน
-  card.style.display = 'block';
-  card.scrollIntoView({ behavior: 'smooth' });
-}
-
-// ฟังก์ชันปิดฟอร์ม
-function closeProjectForm() {
-  const card = document.getElementById('projectFormCard');
-  if (card) card.style.display = 'none';
-  cancelEditProject();
-}
-
-// ปรับแก้ฟังก์ชัน editProjectGroup ให้เปิดฟอร์มขึ้นมาทันทีเมื่อกดแก้ไขในตาราง
-function editProjectGroup(groupKey) {
-  const p = currentProjectsData[groupKey];
-  if (!p) return;
-
-  const card = document.getElementById('projectFormCard');
-  if (card) card.style.display = 'block'; // แสดงฟอร์ม
-
-  document.getElementById('editingProjectKey').value = groupKey;
-  document.getElementById('projectTitleInput').value = p.projectTitle || '';
-  document.getElementById('projectFormTitle').innerText = '✏️ แก้ไขข้อมูลโครงงานกลุ่ม';
-  document.getElementById('btnSubmitProject').innerText = '💾 บันทึกการเปลี่ยนแปลง';
-
-  // เติมข้อมูลสมาชิกเดิมเข้าสู่ฟอร์ม
-  const container = document.getElementById('projectMembersContainer');
-  container.innerHTML = '';
-
-  let membersList = [];
-  if (p.members && Array.isArray(p.members)) {
-    membersList = p.members;
-  } else {
-    if (p.member1Id) membersList.push({ id: p.member1Id, name: p.member1Name });
-    if (p.member2Id) membersList.push({ id: p.member2Id, name: p.member2Name });
-  }
-
-  if (membersList.length === 0) {
-    addProjectMemberField();
-    addProjectMemberField();
-  } else {
-    membersList.forEach(m => {
-      addProjectMemberField(m.id, m.name);
-    });
-  }
-
-  // เลื่อนหน้าจอไปที่ตัวฟอร์ม
-  card.scrollIntoView({ behavior: 'smooth' });
 }
