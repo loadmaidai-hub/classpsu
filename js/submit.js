@@ -1,4 +1,4 @@
-// js/submit.js - ระบบส่งการบ้านแบบกลุ่ม (Group-based Homework Submission)
+// js/submit.js - ระบบส่งการบ้านแบบกลุ่ม (Group-based Homework Submission with Google Drive Upload)
 
 let activeCourseId = "969-042G4";
 let currentSession = "Week 1";
@@ -191,7 +191,20 @@ function handleFileSelected(files) {
   }
 }
 
-// ส่งการบ้านแบบผูกกลุ่มอัตโนมัติ (Group-based Submission)
+// แปลงไฟล์เป็น Base64 String
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const base64Data = reader.result.split(',')[1];
+      resolve(base64Data);
+    };
+    reader.onerror = error => reject(error);
+  });
+}
+
+// ฟังก์ชันส่งการบ้าน: อัปโหลดเข้า Google Drive ผ่าน Apps Script เดิมของอาจารย์
 async function submitHomework() {
   const stId = document.getElementById('studentIdInput').value.trim();
   const stName = document.getElementById('studentNameInput').value.trim();
@@ -208,32 +221,62 @@ async function submitHomework() {
     return alert("อาจารย์ยังไม่ได้ตั้งค่าโฟลเดอร์สำหรับรับงานสัปดาห์นี้");
   }
 
-  const btn = document.getElementById('btnSubmitWork');
-  btn.disabled = true;
-  btn.innerText = "⏳ กำลังส่งงาน...";
-
-  const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
-  const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
-  const now = new Date();
-  const timeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-  // กำหนดรายชื่อที่จะได้รับสถานะส่งแล้ว (ถ้ามีกลุ่ม จะส่งให้ทุกคนในกลุ่ม)
-  let targetMembers = [{ id: stId, name: stName }];
-  if (currentStudentGroup && currentStudentGroup.members && currentStudentGroup.members.length > 0) {
-    targetMembers = currentStudentGroup.members;
+  if (!CONFIG.GOOGLE_DRIVE_UPLOAD_URL) {
+    return alert("กรุณาระบุ CONFIG.GOOGLE_DRIVE_UPLOAD_URL ในไฟล์ js/config.js");
   }
 
-  const payload = {
-    fileUrl: currentAssignmentConfig.folderUrl,
-    fileName: selectedFile.name,
-    fileSize: `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB`,
-    submittedTime: timeString,
-    submittedBy: stId,
-    isGroupSubmission: targetMembers.length > 1
-  };
+  const btn = document.getElementById('btnSubmitWork');
+  btn.disabled = true;
+  btn.innerText = "⏳ กำลังส่งไฟล์เข้า Google Drive...";
 
   try {
-    // ส่งข้อมูลบันทึกลง Firebase ของสมาชิกทุกคนในกลุ่มพร้อมกัน (Parallel Patch)
+    // 1. แปลงไฟล์เป็น Base64
+    const base64Content = await fileToBase64(selectedFile);
+
+    // 2. จัดโครงสร้าง Payload ให้ตรงกับตัวแปรที่ doPost ใน Apps Script รอรับ (folderUrl, fileName, fileData, mimeType)
+    const uploadPayload = {
+      folderUrl: currentAssignmentConfig.folderUrl,
+      fileName: `${stId} - ${stName}_${selectedFile.name}`,
+      fileData: base64Content,
+      mimeType: selectedFile.type || "application/octet-stream"
+    };
+
+    // ส่งคำขอแบบ text/plain เพื่อป้องกันเบราว์เซอร์ส่ง OPTIONS Preflight ติด CORS
+    const uploadRes = await fetch(CONFIG.GOOGLE_DRIVE_UPLOAD_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(uploadPayload)
+    });
+
+    const uploadResult = await uploadRes.json();
+    if (uploadResult.status !== "success" || !uploadResult.fileUrl) {
+      throw new Error(uploadResult.message || "อัปโหลดเข้า Folder  ไม่สำเร็จ");
+    }
+
+    const driveDirectUrl = uploadResult.fileUrl; // ได้รับ URL ตรงของไฟล์ที่สร้างใน Drive สำเร็จ
+
+    // 3. บันทึกสถานะและลิงก์ตรงของไฟล์ลง Firebase ของสมาชิกทุกคนในกลุ่ม
+    btn.innerText = "⏳ กำลังบันทึกสถานะลงระบบ...";
+
+    const baseUrl = CONFIG.FIREBASE_DB_URL.endsWith('/') ? CONFIG.FIREBASE_DB_URL : CONFIG.FIREBASE_DB_URL + '/';
+    const safeSession = (typeof sanitizeKey === 'function') ? sanitizeKey(currentSession) : currentSession;
+    const now = new Date();
+    const timeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    let targetMembers = [{ id: stId, name: stName }];
+    if (currentStudentGroup && currentStudentGroup.members && currentStudentGroup.members.length > 0) {
+      targetMembers = currentStudentGroup.members;
+    }
+
+    const payload = {
+      fileUrl: driveDirectUrl,
+      fileName: selectedFile.name,
+      fileSize: `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB`,
+      submittedTime: timeString,
+      submittedBy: stId,
+      isGroupSubmission: targetMembers.length > 1
+    };
+
     const tasks = targetMembers.map(m => {
       return fetch(`${baseUrl}attendance/${activeCourseId}/${safeSession}/${m.id}.json`, {
         method: "PATCH",
@@ -244,16 +287,13 @@ async function submitHomework() {
 
     await Promise.all(tasks);
 
-    // เปิดโฟลเดอร์ Google Drive ของอาจารย์เพื่อให้วาง/อัปโหลดไฟล์จริง
-    window.open(currentAssignmentConfig.folderUrl, '_blank');
-
     if (targetMembers.length > 1) {
-      alert(`✅ ส่งการบ้านกลุ่มสำเร็จ!\n\nโครงงาน: "${currentStudentGroup.projectTitle}"\nระบบได้อัปเดตสถานะ "ส่งแล้ว" ให้สมาชิกทั้ง ${targetMembers.length} คนเรียบร้อยแล้ว`);
+      alert(`✅ ส่งการบ้านกลุ่มสำเร็จ!\n\nไฟล์ถูกบันทึกเข้า Folder  ของอาจารย์แล้ว\nโครงงาน: "${currentStudentGroup.projectTitle}"\nระบบได้อัปเดตสถานะ "ส่งแล้ว" ให้สมาชิกทั้ง ${targetMembers.length} คนเรียบร้อย`);
     } else {
-      alert("✅ บันทึกสถานะการส่งการบ้านสำเร็จเรียบร้อยแล้ว");
+      alert("✅ ส่งการบ้านสำเร็จ! ไฟล์ถูกบันทึกเข้า Folder ของอาจารย์เรียบร้อยแล้ว");
     }
 
-    // รีเซ็ตฟอร์ม
+    // รีเซ็ตหน้าฟอร์ม
     document.getElementById('studentIdInput').value = '';
     document.getElementById('studentNameInput').value = '';
     document.getElementById('filePreviewText').style.display = 'none';
@@ -264,7 +304,7 @@ async function submitHomework() {
 
   } catch (err) {
     console.error("Submit error:", err);
-    alert("❌ เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง");
+    alert(`❌ เกิดข้อผิดพลาดในการส่งไฟล์: ${err.message || err}`);
   } finally {
     btn.disabled = false;
     btn.innerText = "🚀 ส่งการบ้าน";
