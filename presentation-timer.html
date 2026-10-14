@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบจับเวลานำเสนอโครงงาน — 969-042G4</title>
+
+  <style>
+    @font-face {
+      font-family: 'Gotham';
+      src: local('Gotham'), local('Gotham-Book'), local('Gotham Book');
+      font-weight: 400;
+      font-style: normal;
+    }
+
+    :root {
+      --primary: #4338CA;
+      --primary-hover: #3730A3;
+      --secondary: #059669;
+      --dark: #0F172A;
+      --text-muted: #64748B;
+      --border-soft: #E2E8F0;
+      --danger: #EF4444;
+      --warning: #F59E0B;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Gotham', 'Gotham Book', 'Sukhumwit Set', -apple-system, BlinkMacSystemFont, 'Prompt', sans-serif !important;
+    }
+
+    body {
+      background: radial-gradient(at 10% 10%, #FDF4FF 0px, transparent 50%),
+                  radial-gradient(at 90% 15%, #EDE9FE 0px, transparent 50%),
+                  #F8FAFC;
+      color: var(--dark);
+      min-height: 100vh;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #FFFFFF;
+      padding: 1rem 1.75rem;
+      border-radius: 20px;
+      border: 1px solid var(--border-soft);
+      box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04);
+      margin-bottom: 1.25rem;
+    }
+
+    .header-title-box h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--dark);
+    }
+
+    .header-title-box p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+
+    .badge-time-info {
+      background: #EEF2FF;
+      color: var(--primary);
+      border: 1px solid #C7D2FE;
+      padding: 0.4rem 1rem;
+      border-radius: 9999px;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 1.25rem;
+      flex: 1;
+      height: calc(100vh - 140px);
+    }
+
+    /* CARD LEFT: TIMER & ACTIVE GROUP */
+    .timer-hero-card {
+      background: #FFFFFF;
+      border-radius: 24px;
+      border: 1px solid var(--border-soft);
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05);
+      padding: 2rem 2.25rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      text-align: center;
+    }
+
+    .active-badge-pill {
+      background: #ECFDF5;
+      color: #065F46;
+      border: 1px solid #A7F3D0;
+      padding: 0.35rem 1rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      align-self: center;
+    }
+
+    .group-hero-title {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: var(--primary);
+      margin-top: 0.6rem;
+    }
+
+    .project-hero-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--dark);
+      margin-top: 0.4rem;
+      line-height: 1.3;
+      min-height: 3.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .project-type-tag {
+      background: #F1F5F9;
+      color: #475569;
+      padding: 0.25rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      align-self: center;
+      margin-top: 0.4rem;
+    }
+
+    /* BIG TIMER DISPLAY */
+    .clock-display-wrap {
+      margin: 1.25rem 0;
+      position: relative;
+    }
+
+    .clock-digits {
+      font-size: 6.8rem;
+      font-weight: 800;
+      letter-spacing: 4px;
+      color: var(--dark);
+      line-height: 1;
+      transition: color 0.3s;
+    }
+
+    .clock-digits.warning {
+      color: var(--warning);
+    }
+
+    .clock-digits.danger {
+      color: var(--danger);
+      animation: pulseAlert 1s infinite alternate;
+    }
+
+    @keyframes pulseAlert {
+      from { transform: scale(1); }
+      to { transform: scale(1.03); }
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 10px;
+      background: #E2E8F0;
+      border-radius: 9999px;
+      overflow: hidden;
+      margin-top: 1.25rem;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 100%;
+      background: var(--primary);
+      border-radius: 9999px;
+      transition: width 1s linear, background-color 0.3s;
+    }
+
+    /* CONTROL BUTTONS */
+    .controls-row {
+      display: flex;
+      justify-content: center;
+      gap: 0.85rem;
+      margin-top: 1rem;
+    }
+
+    .btn-timer {
+      border: none;
+      border-radius: 14px;
+      padding: 0.75rem 1.6rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.15s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    .btn-timer:active {
+      transform: scale(0.97);
+    }
+
+    .btn-start {
+      background: var(--primary);
+      color: #FFFFFF;
+    }
+    .btn-start:hover { background: var(--primary-hover); }
+
+    .btn-pause {
+      background: var(--warning);
+      color: #FFFFFF;
+    }
+
+    .btn-reset {
+      background: #F1F5F9;
+      color: #334155;
+      border: 1px solid var(--border-soft);
+    }
+    .btn-reset:hover { background: #E2E8F0; }
+
+    .btn-next {
+      background: var(--secondary);
+      color: #FFFFFF;
+    }
+    .btn-next:hover { background: #047857; }
+
+    /* CARD RIGHT: QUEUE & SCHEDULE */
+    .queue-card {
+      background: #FFFFFF;
+      border-radius: 24px;
+      border: 1px solid var(--border-soft);
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05);
+      padding: 1.5rem 1.75rem;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .queue-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 0.85rem;
+      border-bottom: 1px solid var(--border-soft);
+    }
+
+    .queue-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--dark);
+    }
+
+    .queue-stats {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .schedule-list-wrapper {
+      flex: 1;
+      overflow-y: auto;
+      margin-top: 0.75rem;
+      padding-right: 0.35rem;
+    }
+
+    .schedule-list-wrapper::-webkit-scrollbar {
+      width: 5px;
+    }
+    .schedule-list-wrapper::-webkit-scrollbar-thumb {
+      background: #CBD5E1;
+      border-radius: 999px;
+    }
+
+    .schedule-item {
+      display: grid;
+      grid-template-columns: 50px 105px 1fr 90px;
+      align-items: center;
+      padding: 0.75rem 0.85rem;
+      border-radius: 12px;
+      margin-bottom: 0.35rem;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+    }
+
+    .schedule-item:hover {
+      background: #F8FAFC;
+    }
+
+    .schedule-item.active {
+      background: #EEF2FF;
+      border-color: #C7D2FE;
+    }
+
+    .schedule-item.done {
+      opacity: 0.55;
+      background: #F1F5F9;
+    }
+
+    .item-rank {
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .item-time {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--primary);
+    }
+
+    .item-details {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      padding-right: 0.5rem;
+    }
+
+    .item-group-name {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--dark);
+    }
+
+    .item-project-title {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-type {
+      font-size: 0.7rem;
+      background: #FFFFFF;
+      border: 1px solid var(--border-soft);
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      text-align: center;
+      color: #475569;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER BAR -->
+  <header class="header-bar">
+    <div class="header-title-box">
+      <h1>⏱️ ตารางนำเสนอโครงงาน กลุ่ม 1–27 (Presentation Timer)</h1>
+      <p>วิชา 969-042G4 Uses of Artificial Intelligence in Daily Life | กลุ่มละ 4 นาที</p>
+    </div>
+    <div class="badge-time-info">
+      📅 14 ต.ค. 2569 • 10:30 - 12:20 น.
+    </div>
+  </header>
+
+  <!-- MAIN DUAL GRID -->
+  <main class="main-grid">
+    
+    <!-- LEFT PANE: TIMER DISPLAY -->
+    <section class="timer-hero-card">
+      <div>
+        <div class="active-badge-pill" id="activeStatusPill">
+          <span>●</span> กำลังนำเสนอ (CURRENT PRESENTING)
+        </div>
+
+        <div class="group-hero-title" id="dispGroupName">กลุ่ม 1</div>
+        <div class="project-hero-title" id="dispProjectTitle">วิดีโอแนะนำเครื่องบินเยอรมันในเกม War Thunder</div>
+        <div class="project-type-tag" id="dispProjectType">ประเภท: Video</div>
+      </div>
+
+      <!-- TIMER DIGITS -->
+      <div class="clock-display-wrap">
+        <div class="clock-digits" id="timerClock">04:00</div>
+        <div class="progress-track">
+          <div class="progress-bar" id="timerProgressBar"></div>
+        </div>
+      </div>
+
+      <!-- ACTION BUTTONS -->
+      <div>
+        <div class="controls-row">
+          <button type="button" class="btn-timer btn-start" id="btnToggleTimer" onclick="toggleTimer()">
+            ▶ เริ่มจับเวลา
+          </button>
+          <button type="button" class="btn-timer btn-reset" onclick="resetTimer()">
+            ↺ รีเซ็ต 4 นาที
+          </button>
+          <button type="button" class="btn-timer btn-next" onclick="goToNextGroup()">
+            กลุ่มถัดไป ⏭
+          </button>
+        </div>
+        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.75rem;">
+          กดเลือกกลุ่มจากตารางด้านขวาเพื่อข้ามคิวได้ทันที • มีสัญญาณเสียงเตือนเมื่อเหลือ 1 นาที และหมดเวลา
+        </p>
+      </div>
+    </section>
+
+    <!-- RIGHT PANE: SCHEDULE QUEUE -->
+    <section class="queue-card">
+      <div class="queue-header">
+        <div class="queue-title">📋 คิวการนำเสนอทั้งหมด (27 กลุ่ม)</div>
+        <div class="queue-stats" id="queueProgressStats">กลุ่มที่ 1 / 27</div>
+      </div>
+
+      <div class="schedule-list-wrapper" id="scheduleListContainer">
+        <!-- Rendered via JavaScript -->
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // 1. ข้อมูลนำเสนอโครงงาน กลุ่ม 1–27 ตามเอกสาร PDF แนบ
+    const SCHEDULE_DATA = [
+      { id: 1, time: "10:30-10:34", group: "กลุ่ม 1", title: "วิดีโอแนะนำเครื่องบินเยอรมันในเกม War Thunder", type: "Video" },
+      { id: 2, time: "10:34-10:38", group: "กลุ่ม 2", title: "Calendar Project - Usage AI", type: "Desktop App (Electron)" },
+      { id: 3, time: "10:38-10:42", group: "กลุ่ม 3", title: "Horror Engine Advisor", type: "Web App" },
+      { id: 4, time: "10:42-10:46", group: "กลุ่ม 4", title: "PetHelper", type: "Mobile App (Flutter)" },
+      { id: 5, time: "10:46-10:50", group: "กลุ่ม 5", title: "FixMatch - Web App หาช่าง", type: "Web App + Backend" },
+      { id: 6, time: "10:50-10:54", group: "กลุ่ม 6", title: "VGC Lab - คู่มือจัดทีม Pokémon", type: "Web App" },
+      { id: 7, time: "10:54-10:58", group: "กลุ่ม 7", title: "เว็บแนะนำนิยาย", type: "Web App" },
+      { id: 8, time: "10:58-11:02", group: "กลุ่ม 8", title: "Event Generator", type: "Web App + Gen AI" },
+      { id: 9, time: "11:02-11:06", group: "กลุ่ม 9", title: "Meow Tarot", type: "Web App" },
+      { id: 10, time: "11:06-11:10", group: "กลุ่ม 10", title: "Teaser \"Until the Sun Sets\"", type: "AI Video" },
+      { id: 11, time: "11:10-11:14", group: "กลุ่ม 11", title: "(ยังไม่ส่งเอกสาร)", type: "-" },
+      { id: 12, time: "11:14-11:18", group: "กลุ่ม 12", title: "Pomodoro Timer & To-Do", type: "Web App (local)" },
+      { id: 13, time: "11:18-11:22", group: "กลุ่ม 13", title: "KLINCHA ชาดำเย็นกระป๋อง", type: "Branding + โฆษณา AI" },
+      { id: 14, time: "11:22-11:26", group: "กลุ่ม 14", title: "Quiz Quest", type: "Web Game" },
+      { id: 15, time: "11:26-11:30", group: "กลุ่ม 15", title: "Gerry Girls Online Photo Booth", type: "Web App" },
+      { id: 16, time: "11:30-11:34", group: "กลุ่ม 16", title: "FrameStory", type: "Python + Gemini Vision" },
+      { id: 17, time: "11:34-11:38", group: "กลุ่ม 17", title: "เว็บออกแบบตกแต่งห้อง", type: "Web App (Three.js)" },
+      { id: 18, time: "11:38-11:42", group: "กลุ่ม 18", title: "AI Mood Playlist", type: "Web App + AI" },
+      { id: 19, time: "11:42-11:46", group: "กลุ่ม 19", title: "แนะนำอุปกรณ์แบดมินตัน", type: "Web App (PHP/SQL)" },
+      { id: 20, time: "11:46-11:50", group: "กลุ่ม 20", title: "island.ctrl แบรนด์เสื้อผ้า + E-commerce", type: "Brand + Web" },
+      { id: 21, time: "11:50-11:54", group: "กลุ่ม 21", title: "Phuket Traffic Light", type: "Web App + Maps" },
+      { id: 22, time: "11:54-11:58", group: "กลุ่ม 22", title: "Multiverse Life Path Simulator", type: "Web App" },
+      { id: 23, time: "11:58-12:02", group: "กลุ่ม 23", title: "MHW Discord Guide Bot", type: "Discord Bot (Python)" },
+      { id: 24, time: "12:02-12:06", group: "กลุ่ม 24", title: "Keymage Game", type: "Web Game (Node)" },
+      { id: 25, time: "12:06-12:10", group: "กลุ่ม 25", title: "LifeFlow", type: "Web App (Next.js, PWA)" },
+      { id: 26, time: "12:10-12:14", group: "กลุ่ม 26", title: "SportZone", type: "Web App (Flask)" },
+      { id: 27, time: "12:14-12:18", group: "กลุ่ม 27", title: "Koi no Tsurugi - คลิป AI แนวตั้ง", type: "AI Video (Anime)" }
+    ];
+
+    const TOTAL_SECONDS = 240; // 4 นาที
+    let currentGroupIndex = 0;
+    let secondsLeft = TOTAL_SECONDS;
+    let timerInterval = null;
+    let isRunning = false;
+
+    // Web Audio Beep สำหรับแจ้งเตือน (ไม่ต้องพึ่งพาไฟล์ mp3)
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playBeep(freq = 600, duration = 0.2) {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      renderScheduleList();
+      selectGroup(0);
+    });
+
+    function renderScheduleList() {
+      const container = document.getElementById('scheduleListContainer');
+      container.innerHTML = SCHEDULE_DATA.map((item, idx) => `
+        <div class="schedule-item ${idx === currentGroupIndex ? 'active' : ''}" id="item-${idx}" onclick="selectGroup(${idx})">
+          <div class="item-rank">#${item.id}</div>
+          <div class="item-time">${item.time}</div>
+          <div class="item-details">
+            <div class="item-group-name">${item.group}</div>
+            <div class="item-project-title">${item.title}</div>
+          </div>
+          <div class="item-type">${item.type}</div>
+        </div>
+      `).join('');
+    }
+
+    function selectGroup(index) {
+      if (index < 0 || index >= SCHEDULE_DATA.length) return;
+      
+      pauseTimer();
+      currentGroupIndex = index;
+      const grp = SCHEDULE_DATA[currentGroupIndex];
+
+      document.getElementById('dispGroupName').innerText = grp.group;
+      document.getElementById('dispProjectTitle').innerText = grp.title;
+      document.getElementById('dispProjectType').innerText = `ประเภท: ${grp.type}`;
+      document.getElementById('queueProgressStats').innerText = `กลุ่มที่ ${grp.id} / ${SCHEDULE_DATA.length}`;
+
+      // อัปเดต Active Class
+      document.querySelectorAll('.schedule-item').forEach((el, i) => {
+        el.classList.remove('active');
+        if (i < currentGroupIndex) el.classList.add('done');
+        else el.classList.remove('done');
+      });
+
+      const currentElem = document.getElementById(`item-${currentGroupIndex}`);
+      if (currentElem) {
+        currentElem.classList.add('active');
+        currentElem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      resetTimer();
+    }
+
+    function updateClockDisplay() {
+      const m = Math.floor(secondsLeft / 60);
+      const s = secondsLeft % 60;
+      const formatted = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      
+      const clockEl = document.getElementById('timerClock');
+      const barEl = document.getElementById('timerProgressBar');
+      clockEl.innerText = formatted;
+
+      // ปรับ Progress Bar
+      const pct = (secondsLeft / TOTAL_SECONDS) * 100;
+      barEl.style.width = `${pct}%`;
+
+      // ปรับสีเตือน
+      clockEl.classList.remove('warning', 'danger');
+      if (secondsLeft <= 60 && secondsLeft > 0) {
+        clockEl.classList.add('warning');
+        barEl.style.backgroundColor = 'var(--warning)';
+      } else if (secondsLeft === 0) {
+        clockEl.classList.add('danger');
+        barEl.style.backgroundColor = 'var(--danger)';
+      } else {
+        barEl.style.backgroundColor = 'var(--primary)';
+      }
+    }
+
+    function toggleTimer() {
+      if (isRunning) {
+        pauseTimer();
+      } else {
+        startTimer();
+      }
+    }
+
+    function startTimer() {
+      if (isRunning) return;
+      if (secondsLeft === 0) resetTimer();
+
+      isRunning = true;
+      const btn = document.getElementById('btnToggleTimer');
+      btn.innerText = "⏸ พักเวลา";
+      btn.className = "btn-timer btn-pause";
+
+      timerInterval = setInterval(() => {
+        if (secondsLeft > 0) {
+          secondsLeft--;
+          updateClockDisplay();
+
+          // เตือนเมื่อเหลือ 60 วินาที
+          if (secondsLeft === 60) {
+            playBeep(700, 0.4);
+          }
+
+          // หมดเวลา
+          if (secondsLeft === 0) {
+            playBeep(900, 0.8);
+            pauseTimer();
+          }
+        }
+      }, 1000);
+    }
+
+    function pauseTimer() {
+      isRunning = false;
+      clearInterval(timerInterval);
+      const btn = document.getElementById('btnToggleTimer');
+      btn.innerText = "▶ เริ่มจับเวลา";
+      btn.className = "btn-timer btn-start";
+    }
+
+    function resetTimer() {
+      pauseTimer();
+      secondsLeft = TOTAL_SECONDS;
+      updateClockDisplay();
+    }
+
+    function goToNextGroup() {
+      if (currentGroupIndex < SCHEDULE_DATA.length - 1) {
+        selectGroup(currentGroupIndex + 1);
+      } else {
+        alert("🎉 นำเสนอครบทั้ง 27 กลุ่มเรียบร้อยแล้วครับ!");
+      }
+    }
+
+    // Keyboard Shortcuts เพิ่มความสะดวกให้อาจารย์:
+    // Spacebar = เริ่ม/พักเวลา, ArrowRight = กลุ่มถัดไป, R = รีเซ็ต
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        toggleTimer();
+      } else if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        goToNextGroup();
+      } else if (e.key === 'r' || e.key === 'R') {
+        resetTimer();
+      }
+    });
+  </script>
+</body>
+</html>
