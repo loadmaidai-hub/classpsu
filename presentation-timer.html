@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ระบบจับเวลานำเสนอโครงงาน — 969-042G4</title>
+  <title>ตารางนำเสนอโครงงาน กลุ่ม 1–27 — Teacher Presentation</title>
 
   <style>
+    /* ================= 1. FONT DECLARATIONS (V1 EXACT) ================= */
     @font-face {
       font-family: 'Gotham';
       src: local('Gotham'), local('Gotham-Book'), local('Gotham Book');
@@ -13,343 +14,472 @@
       font-style: normal;
     }
 
-    :root {
-      --primary: #4338CA;
-      --primary-hover: #3730A3;
-      --secondary: #059669;
-      --dark: #0F172A;
-      --text-muted: #64748B;
-      --border-soft: #E2E8F0;
-      --danger: #EF4444;
-      --warning: #F59E0B;
-    }
-
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
       font-family: 'Gotham', 'Gotham Book', 'Sukhumwit Set', -apple-system, BlinkMacSystemFont, 'Prompt', sans-serif !important;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    :root {
+      --primary: #2563EB;
+      --primary-dark: #1D4ED8;
+      --dark: #0F172A;
+      --text-muted: #64748B;
+      --border-soft: #E2E8F0;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --danger: #EF4444;
     }
 
     body {
-      background: radial-gradient(at 10% 10%, #FDF4FF 0px, transparent 50%),
-                  radial-gradient(at 90% 15%, #EDE9FE 0px, transparent 50%),
-                  #F8FAFC;
-      color: var(--dark);
-      min-height: 100vh;
-      padding: 1.5rem;
+      background-color: #E2E8F0;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
       display: flex;
-      flex-direction: column;
+      justify-content: center;
+      align-items: center;
     }
 
-    .header-bar {
+    /* 2-PANE LOCKED LAYOUT LIKE TEACHER.HTML */
+    .teacher-layout-container {
+      display: grid;
+      grid-template-columns: 52% 48%;
+      gap: 1.25rem;
+      width: 100vw;
+      height: 100vh;
+      padding: 1.25rem;
+    }
+
+    .screen-card {
+      background: #FFFFFF;
+      border-radius: 28px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+      border: 1px solid #CBD5E1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 1.5rem 1.75rem;
+    }
+
+    /* ================= LEFT CARD (PRESENTATION TIMER) ================= */
+    .left-card {
+      justify-content: space-between;
+    }
+
+    .card-window-bar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: #FFFFFF;
-      padding: 1rem 1.75rem;
-      border-radius: 20px;
-      border: 1px solid var(--border-soft);
-      box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04);
-      margin-bottom: 1.25rem;
     }
 
-    .header-title-box h1 {
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: var(--dark);
-    }
-
-    .header-title-box p {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      margin-top: 0.2rem;
-    }
-
-    .badge-time-info {
-      background: #EEF2FF;
-      color: var(--primary);
-      border: 1px solid #C7D2FE;
-      padding: 0.4rem 1rem;
-      border-radius: 9999px;
-      font-size: 0.82rem;
-      font-weight: 600;
-    }
-
-    .main-grid {
-      display: grid;
-      grid-template-columns: 1.1fr 0.9fr;
-      gap: 1.25rem;
-      flex: 1;
-      height: calc(100vh - 140px);
-    }
-
-    /* CARD LEFT: TIMER & ACTIVE GROUP */
-    .timer-hero-card {
-      background: #FFFFFF;
-      border-radius: 24px;
-      border: 1px solid var(--border-soft);
-      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05);
-      padding: 2rem 2.25rem;
+    .traffic-dots {
       display: flex;
-      flex-direction: column;
-      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+    }
+    .dot.red { background: #FF5F56; }
+    .dot.yellow { background: #FFBD2E; }
+    .dot.green { background: #27C93F; }
+
+    .classroom-pill {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #0284C7;
+      background: #E0F2FE;
+      padding: 0.3rem 0.85rem;
+      border-radius: 999px;
+      border: 1px solid #BAE6FD;
+    }
+
+    .status-center-wrap {
+      display: flex;
+      justify-content: center;
+      margin-top: 0.25rem;
+    }
+
+    .badge-live-pulse {
+      background: #ECFDF5;
+      border: 1px solid #A7F3D0;
+      color: #059669;
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 0.3rem 1.1rem;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #10B981;
+      box-shadow: 0 0 8px #10B981;
+    }
+
+    .session-heading-block {
+      text-align: center;
+      margin: 0.25rem 0;
+    }
+
+    .session-week-title {
+      font-size: 2.1rem;
+      font-weight: 800;
+      color: #0F172A;
+      margin-bottom: 0.2rem;
+    }
+
+    .session-course-sub {
+      font-size: 0.84rem;
+      color: #475569;
+    }
+
+    /* BLUE DASHED CARD (MATCHING PIN BOX IN TEACHER.HTML) */
+    .timer-blue-box {
+      background: #2563EB;
+      border: 2.5px dashed #93C5FD;
+      border-radius: 22px;
+      padding: 1.1rem 1.75rem;
+      color: #FFFFFF;
+      margin: 0.2rem 0;
       text-align: center;
     }
 
-    .active-badge-pill {
-      background: #ECFDF5;
-      color: #065F46;
-      border: 1px solid #A7F3D0;
-      padding: 0.35rem 1rem;
-      border-radius: 9999px;
-      font-size: 0.85rem;
-      font-weight: 700;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      align-self: center;
-    }
-
-    .group-hero-title {
-      font-size: 2.2rem;
-      font-weight: 800;
-      color: var(--primary);
-      margin-top: 0.6rem;
-    }
-
-    .project-hero-title {
-      font-size: 1.35rem;
-      font-weight: 700;
-      color: var(--dark);
-      margin-top: 0.4rem;
-      line-height: 1.3;
-      min-height: 3.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .project-type-tag {
-      background: #F1F5F9;
-      color: #475569;
-      padding: 0.25rem 0.85rem;
-      border-radius: 8px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      align-self: center;
-      margin-top: 0.4rem;
-    }
-
-    /* BIG TIMER DISPLAY */
-    .clock-display-wrap {
-      margin: 1.25rem 0;
-      position: relative;
-    }
-
-    .clock-digits {
-      font-size: 6.8rem;
-      font-weight: 800;
-      letter-spacing: 4px;
-      color: var(--dark);
-      line-height: 1;
-      transition: color 0.3s;
-    }
-
-    .clock-digits.warning {
-      color: var(--warning);
-    }
-
-    .clock-digits.danger {
-      color: var(--danger);
-      animation: pulseAlert 1s infinite alternate;
-    }
-
-    @keyframes pulseAlert {
-      from { transform: scale(1); }
-      to { transform: scale(1.03); }
-    }
-
-    .progress-track {
-      width: 100%;
-      height: 10px;
-      background: #E2E8F0;
-      border-radius: 9999px;
-      overflow: hidden;
-      margin-top: 1.25rem;
-    }
-
-    .progress-bar {
-      height: 100%;
-      width: 100%;
-      background: var(--primary);
-      border-radius: 9999px;
-      transition: width 1s linear, background-color 0.3s;
-    }
-
-    /* CONTROL BUTTONS */
-    .controls-row {
-      display: flex;
-      justify-content: center;
-      gap: 0.85rem;
-      margin-top: 1rem;
-    }
-
-    .btn-timer {
-      border: none;
-      border-radius: 14px;
-      padding: 0.75rem 1.6rem;
-      font-size: 0.95rem;
-      font-weight: 700;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      transition: all 0.15s ease;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    }
-
-    .btn-timer:active {
-      transform: scale(0.97);
-    }
-
-    .btn-start {
-      background: var(--primary);
-      color: #FFFFFF;
-    }
-    .btn-start:hover { background: var(--primary-hover); }
-
-    .btn-pause {
-      background: var(--warning);
-      color: #FFFFFF;
-    }
-
-    .btn-reset {
-      background: #F1F5F9;
-      color: #334155;
-      border: 1px solid var(--border-soft);
-    }
-    .btn-reset:hover { background: #E2E8F0; }
-
-    .btn-next {
-      background: var(--secondary);
-      color: #FFFFFF;
-    }
-    .btn-next:hover { background: #047857; }
-
-    /* CARD RIGHT: QUEUE & SCHEDULE */
-    .queue-card {
-      background: #FFFFFF;
-      border-radius: 24px;
-      border: 1px solid var(--border-soft);
-      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05);
-      padding: 1.5rem 1.75rem;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .queue-header {
+    .timer-box-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 0.85rem;
-      border-bottom: 1px solid var(--border-soft);
+      font-size: 0.82rem;
     }
 
-    .queue-title {
-      font-size: 1.1rem;
+    .timer-header-text {
+      color: #EFF6FF;
+    }
+
+    .timer-slot-badge {
+      background: #1D4ED8;
+      border: 1px solid #60A5FA;
+      padding: 0.2rem 0.75rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
       font-weight: 700;
-      color: var(--dark);
+      color: #FFFFFF;
     }
 
-    .queue-stats {
-      font-size: 0.8rem;
-      color: var(--text-muted);
+    .timer-numbers {
+      font-size: 5rem;
+      font-weight: 800;
+      letter-spacing: 6px;
+      text-align: center;
+      line-height: 1.05;
+      margin: 0.4rem 0 0.2rem 0;
+      text-shadow: 0 3px 12px rgba(0, 0, 0, 0.2);
+      transition: color 0.3s;
     }
 
-    .schedule-list-wrapper {
-      flex: 1;
-      overflow-y: auto;
-      margin-top: 0.75rem;
-      padding-right: 0.35rem;
+    .timer-numbers.warning {
+      color: #FEF08A; /* เหลืองเตือน */
     }
 
-    .schedule-list-wrapper::-webkit-scrollbar {
-      width: 5px;
+    .timer-numbers.danger {
+      color: #FECACA; /* แดงหมดเวลา */
+      animation: alertBlink 1s infinite alternate;
     }
-    .schedule-list-wrapper::-webkit-scrollbar-thumb {
-      background: #CBD5E1;
+
+    @keyframes alertBlink {
+      from { transform: scale(1); }
+      to { transform: scale(1.02); }
+    }
+
+    .timer-progress-track {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.2);
       border-radius: 999px;
+      overflow: hidden;
+      margin-top: 0.5rem;
     }
 
-    .schedule-item {
-      display: grid;
-      grid-template-columns: 50px 105px 1fr 90px;
-      align-items: center;
-      padding: 0.75rem 0.85rem;
-      border-radius: 12px;
-      margin-bottom: 0.35rem;
-      cursor: pointer;
-      border: 1px solid transparent;
-      transition: all 0.15s ease;
+    .timer-progress-bar {
+      height: 100%;
+      width: 100%;
+      background: #93C5FD;
+      transition: width 1s linear;
     }
 
-    .schedule-item:hover {
+    /* CURRENT PROJECT INFO CARD */
+    .current-project-card {
       background: #F8FAFC;
-    }
-
-    .schedule-item.active {
-      background: #EEF2FF;
-      border-color: #C7D2FE;
-    }
-
-    .schedule-item.done {
-      opacity: 0.55;
-      background: #F1F5F9;
-    }
-
-    .item-rank {
-      font-weight: 700;
-      font-size: 0.85rem;
-      color: var(--text-muted);
-    }
-
-    .item-time {
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: var(--primary);
-    }
-
-    .item-details {
+      border: 1.5px solid #E2E8F0;
+      border-radius: 18px;
+      padding: 0.85rem 1.25rem;
       display: flex;
       flex-direction: column;
-      gap: 0.15rem;
-      padding-right: 0.5rem;
+      gap: 0.25rem;
     }
 
-    .item-group-name {
-      font-size: 0.85rem;
+    .current-group-badge-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .current-group-name {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #0284C7;
+    }
+
+    .current-type-tag {
+      font-size: 0.75rem;
+      background: #E2E8F0;
+      color: #334155;
+      padding: 0.2rem 0.65rem;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+
+    .current-project-title {
+      font-size: 0.95rem;
       font-weight: 700;
-      color: var(--dark);
-    }
-
-    .item-project-title {
-      font-size: 0.78rem;
-      color: var(--text-muted);
+      color: #0F172A;
+      line-height: 1.35;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    .item-type {
-      font-size: 0.7rem;
+    /* ACTION BUTTONS (V1 EXACT PALETTE) */
+    .action-buttons-row {
+      display: flex;
+      gap: 0.65rem;
+      align-items: center;
+    }
+
+    .btn-ctrl {
+      border: none;
+      border-radius: 14px;
+      padding: 0.65rem 1rem;
+      color: #FFFFFF;
+      font-size: 0.86rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+      transition: transform 0.1s;
+    }
+
+    .btn-ctrl:active { transform: scale(0.97); }
+
+    .btn-purple {
+      background: #4F46E5;
+      flex: 1.3;
+    }
+    .btn-purple.is-pause {
+      background: #D97706;
+    }
+
+    .btn-orange {
+      background: #EA580C;
+      flex: 0.9;
+    }
+
+    .session-select-wrap {
+      flex: 1.6;
       background: #FFFFFF;
-      border: 1px solid var(--border-soft);
-      padding: 0.2rem 0.5rem;
+      border: 1.5px solid #E2E8F0;
+      border-radius: 14px;
+      padding: 0.35rem 0.65rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .session-picker-select {
+      border: none;
+      outline: none;
+      background: transparent;
+      width: 100%;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #0F172A;
+      cursor: pointer;
+    }
+
+    .btn-next-action {
+      background: #10B981;
+      flex: 1.1;
+    }
+
+    /* FOOTER HINT */
+    .bottom-hint-text {
+      text-align: center;
+      font-size: 0.74rem;
+      color: #94A3B8;
+      margin-top: 0.2rem;
+    }
+
+    /* ================= RIGHT CARD (SCHEDULE TABLE) ================= */
+    .right-card {
+      padding: 1.5rem 1.75rem;
+    }
+
+    .leaderboard-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding-bottom: 0.85rem;
+    }
+
+    .title-with-trophy {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #0F172A;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .realtime-sync-tag {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #10B981;
+      margin-top: 0.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .top-row-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.25rem;
+    }
+
+    .week-pill-tag {
+      background: #F1F5F9;
+      border: 1px solid #E2E8F0;
+      padding: 0.25rem 0.65rem;
+      border-radius: 8px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: #334155;
+    }
+
+    .submission-stats {
+      font-size: 0.78rem;
+      color: #64748B;
+    }
+
+    .submission-stats strong {
+      color: #0F172A;
+      font-weight: 800;
+    }
+
+    /* LIVE TABLE HEAD & BODY */
+    .live-table-head {
+      display: grid;
+      grid-template-columns: 50px 95px 1fr 105px;
+      padding: 0.6rem 0.5rem;
+      font-size: 0.78rem;
+      color: #94A3B8;
+      font-weight: 600;
+      border-bottom: 1px solid #F1F5F9;
+    }
+
+    .live-table-body {
+      flex: 1;
+      overflow-y: auto;
+      margin-top: 0.35rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      padding-right: 0.25rem;
+    }
+
+    .live-table-body::-webkit-scrollbar { width: 5px; }
+    .live-table-body::-webkit-scrollbar-thumb {
+      background: #CBD5E1;
+      border-radius: 999px;
+    }
+
+    .live-row {
+      display: grid;
+      grid-template-columns: 50px 95px 1fr 105px;
+      align-items: center;
+      padding: 0.65rem 0.5rem;
+      border-radius: 12px;
+      border-bottom: 1px solid #F8FAFC;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .live-row:hover {
+      background: #F8FAFC;
+    }
+
+    .live-row.active {
+      background: #EEF2FF;
+      border: 1px solid #C7D2FE;
+    }
+
+    .live-row.done {
+      opacity: 0.5;
+    }
+
+    .col-idx {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #64748B;
+    }
+
+    .col-time {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #2563EB;
+    }
+
+    .col-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+      padding-right: 0.5rem;
+    }
+
+    .st-group-title {
+      font-size: 0.86rem;
+      font-weight: 700;
+      color: #0F172A;
+    }
+
+    .st-project-title {
+      font-size: 0.74rem;
+      color: #64748B;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .col-type-tag {
+      font-size: 0.7rem;
+      background: #F1F5F9;
+      color: #475569;
+      border: 1px solid #E2E8F0;
+      padding: 0.2rem 0.45rem;
       border-radius: 6px;
       text-align: center;
-      color: #475569;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -358,103 +488,159 @@
 </head>
 <body>
 
-  <!-- HEADER BAR -->
-  <header class="header-bar">
-    <div class="header-title-box">
-      <h1>⏱️ ตารางนำเสนอโครงงาน กลุ่ม 1–27 (Presentation Timer)</h1>
-      <p>วิชา 969-042G4 Uses of Artificial Intelligence in Daily Life | กลุ่มละ 4 นาที</p>
-    </div>
-    <div class="badge-time-info">
-      📅 14 ต.ค. 2569 • 10:30 - 12:20 น.
-    </div>
-  </header>
+  <div class="teacher-layout-container">
 
-  <!-- MAIN DUAL GRID -->
-  <main class="main-grid">
-    
-    <!-- LEFT PANE: TIMER DISPLAY -->
-    <section class="timer-hero-card">
-      <div>
-        <div class="active-badge-pill" id="activeStatusPill">
-          <span>●</span> กำลังนำเสนอ (CURRENT PRESENTING)
+    <!-- ==================== LEFT CARD: PRESENTATION TIMER ==================== -->
+    <section class="screen-card left-card">
+      
+      <!-- Top Window Header -->
+      <div class="card-window-bar">
+        <div class="traffic-dots">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green"></span>
         </div>
-
-        <div class="group-hero-title" id="dispGroupName">กลุ่ม 1</div>
-        <div class="project-hero-title" id="dispProjectTitle">วิดีโอแนะนำเครื่องบินเยอรมันในเกม War Thunder</div>
-        <div class="project-type-tag" id="dispProjectType">ประเภท: Video</div>
-      </div>
-
-      <!-- TIMER DIGITS -->
-      <div class="clock-display-wrap">
-        <div class="clock-digits" id="timerClock">04:00</div>
-        <div class="progress-track">
-          <div class="progress-bar" id="timerProgressBar"></div>
+        <div class="classroom-pill" id="classroomPill">
+          🌐 CLASSROOM: 969-042G4 ▾
         </div>
       </div>
 
-      <!-- ACTION BUTTONS -->
-      <div>
-        <div class="controls-row">
-          <button type="button" class="btn-timer btn-start" id="btnToggleTimer" onclick="toggleTimer()">
-            ▶ เริ่มจับเวลา
-          </button>
-          <button type="button" class="btn-timer btn-reset" onclick="resetTimer()">
-            ↺ รีเซ็ต 4 นาที
-          </button>
-          <button type="button" class="btn-timer btn-next" onclick="goToNextGroup()">
-            กลุ่มถัดไป ⏭
-          </button>
+      <!-- Live Status Pill -->
+      <div class="status-center-wrap">
+        <div class="badge-live-pulse">
+          <span class="live-dot"></span> PRESENTATION IS LIVE • นำเสนอโครงงานกลุ่ม 1–27
         </div>
-        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.75rem;">
-          กดเลือกกลุ่มจากตารางด้านขวาเพื่อข้ามคิวได้ทันที • มีสัญญาณเสียงเตือนเมื่อเหลือ 1 นาที และหมดเวลา
+      </div>
+
+      <!-- Heading -->
+      <div class="session-heading-block">
+        <h1 class="session-week-title" id="sessionWeekTitle">ตารางนำเสนอโครงงาน</h1>
+        <p class="session-course-sub">
+          <b>969-042G4</b> USES OF ARTIFICIAL INTELLIGENCE IN DAILY LIFE | กลุ่มละ 4 นาที
         </p>
       </div>
-    </section>
 
-    <!-- RIGHT PANE: SCHEDULE QUEUE -->
-    <section class="queue-card">
-      <div class="queue-header">
-        <div class="queue-title">📋 คิวการนำเสนอทั้งหมด (27 กลุ่ม)</div>
-        <div class="queue-stats" id="queueProgressStats">กลุ่มที่ 1 / 27</div>
+      <!-- BLUE TIMER DASHED BOX (SAME AS PIN BOX) -->
+      <div class="timer-blue-box">
+        <div class="timer-box-header">
+          <span class="timer-header-text">เวลาบรรยายและตอบคำถาม (นับถอยหลัง):</span>
+          <span class="timer-slot-badge" id="slotTimeRange">10:30-10:34</span>
+        </div>
+        
+        <div class="timer-numbers" id="timerClock">04:00</div>
+        
+        <div class="timer-progress-track">
+          <div class="timer-progress-bar" id="timerProgressBar"></div>
+        </div>
       </div>
 
-      <div class="schedule-list-wrapper" id="scheduleListContainer">
+      <!-- CURRENT PROJECT SUMMARY -->
+      <div class="current-project-card">
+        <div class="current-group-badge-row">
+          <span class="current-group-name" id="dispGroupName">กลุ่ม 1</span>
+          <span class="current-type-tag" id="dispProjectType">Video</span>
+        </div>
+        <div class="current-project-title" id="dispProjectTitle">วิดีโอแนะนำเครื่องบินเยอรมันในเกม War Thunder</div>
+      </div>
+
+      <!-- ACTION BUTTONS ROW -->
+      <div class="action-buttons-row">
+        <button type="button" class="btn-ctrl btn-purple" id="btnToggleTimer" onclick="toggleTimer()">
+          ⚡ เริ่มจับเวลา
+        </button>
+
+        <div class="session-select-wrap">
+          <span>👥</span>
+          <select id="groupDropdownPicker" class="session-picker-select" onchange="selectGroup(parseInt(this.value))">
+            <!-- Render via JS -->
+          </select>
+        </div>
+
+        <button type="button" class="btn-ctrl btn-orange" onclick="resetTimer()">
+          ↺ รีเซ็ต
+        </button>
+
+        <button type="button" class="btn-ctrl btn-next-action" onclick="goToNextGroup()">
+          ถัดไป ⏭
+        </button>
+      </div>
+
+      <div class="bottom-hint-text">
+        คีย์ลัด: [Spacebar] = เริ่ม/พักเวลา | [ลูกศรขวา] = กลุ่มถัดไป | [R] = รีเซ็ต 4 นาที
+      </div>
+
+    </section>
+
+    <!-- ==================== RIGHT CARD: PRESENTATION SCHEDULE ==================== -->
+    <section class="screen-card right-card">
+      
+      <div class="leaderboard-top-row">
+        <div>
+          <div class="title-with-trophy">
+            <span>📋</span> คิวตารางนำเสนอโครงงาน
+          </div>
+          <div class="realtime-sync-tag">
+            <span class="live-dot" style="width:6px; height:6px;"></span> Realtime Sync
+          </div>
+        </div>
+
+        <div class="top-row-right">
+          <div class="week-pill-tag">
+            📅 14 ต.ค. 2569 (10:30 - 12:20)
+          </div>
+          <div class="submission-stats">
+            ลำดับปัจจุบัน: <strong id="currentProgressBadge">1</strong>/27 กลุ่ม
+          </div>
+        </div>
+      </div>
+
+      <!-- Table Head -->
+      <div class="live-table-head">
+        <div>ลำดับ</div>
+        <div>เวลา</div>
+        <div>กลุ่ม / ชื่อโครงงาน</div>
+        <div style="text-align: center;">ประเภท</div>
+      </div>
+
+      <!-- Schedule Rows List -->
+      <div class="live-table-body" id="scheduleListContainer">
         <!-- Rendered via JavaScript -->
       </div>
+
     </section>
 
-  </main>
+  </div>
 
   <script>
-    // 1. ข้อมูลนำเสนอโครงงาน กลุ่ม 1–27 ตามเอกสาร PDF แนบ
+    // ข้อมูลจากเอกสาร PDF นำเสนอโครงงาน กลุ่ม 1–27
     const SCHEDULE_DATA = [
       { id: 1, time: "10:30-10:34", group: "กลุ่ม 1", title: "วิดีโอแนะนำเครื่องบินเยอรมันในเกม War Thunder", type: "Video" },
-      { id: 2, time: "10:34-10:38", group: "กลุ่ม 2", title: "Calendar Project - Usage AI", type: "Desktop App (Electron)" },
+      { id: 2, time: "10:34-10:38", group: "กลุ่ม 2", title: "Calendar Project - Usage AI", type: "Desktop App" },
       { id: 3, time: "10:38-10:42", group: "กลุ่ม 3", title: "Horror Engine Advisor", type: "Web App" },
-      { id: 4, time: "10:42-10:46", group: "กลุ่ม 4", title: "PetHelper", type: "Mobile App (Flutter)" },
-      { id: 5, time: "10:46-10:50", group: "กลุ่ม 5", title: "FixMatch - Web App หาช่าง", type: "Web App + Backend" },
+      { id: 4, time: "10:42-10:46", group: "กลุ่ม 4", title: "PetHelper", type: "Mobile App" },
+      { id: 5, time: "10:46-10:50", group: "กลุ่ม 5", title: "FixMatch - Web App หาช่าง", type: "Web App" },
       { id: 6, time: "10:50-10:54", group: "กลุ่ม 6", title: "VGC Lab - คู่มือจัดทีม Pokémon", type: "Web App" },
       { id: 7, time: "10:54-10:58", group: "กลุ่ม 7", title: "เว็บแนะนำนิยาย", type: "Web App" },
-      { id: 8, time: "10:58-11:02", group: "กลุ่ม 8", title: "Event Generator", type: "Web App + Gen AI" },
+      { id: 8, time: "10:58-11:02", group: "กลุ่ม 8", title: "Event Generator", type: "Web App + AI" },
       { id: 9, time: "11:02-11:06", group: "กลุ่ม 9", title: "Meow Tarot", type: "Web App" },
       { id: 10, time: "11:06-11:10", group: "กลุ่ม 10", title: "Teaser \"Until the Sun Sets\"", type: "AI Video" },
       { id: 11, time: "11:10-11:14", group: "กลุ่ม 11", title: "(ยังไม่ส่งเอกสาร)", type: "-" },
-      { id: 12, time: "11:14-11:18", group: "กลุ่ม 12", title: "Pomodoro Timer & To-Do", type: "Web App (local)" },
-      { id: 13, time: "11:18-11:22", group: "กลุ่ม 13", title: "KLINCHA ชาดำเย็นกระป๋อง", type: "Branding + โฆษณา AI" },
+      { id: 12, time: "11:14-11:18", group: "กลุ่ม 12", title: "Pomodoro Timer & To-Do", type: "Web App" },
+      { id: 13, time: "11:18-11:22", group: "กลุ่ม 13", title: "KLINCHA ชาดำเย็นกระป๋อง", type: "Branding" },
       { id: 14, time: "11:22-11:26", group: "กลุ่ม 14", title: "Quiz Quest", type: "Web Game" },
       { id: 15, time: "11:26-11:30", group: "กลุ่ม 15", title: "Gerry Girls Online Photo Booth", type: "Web App" },
-      { id: 16, time: "11:30-11:34", group: "กลุ่ม 16", title: "FrameStory", type: "Python + Gemini Vision" },
-      { id: 17, time: "11:34-11:38", group: "กลุ่ม 17", title: "เว็บออกแบบตกแต่งห้อง", type: "Web App (Three.js)" },
+      { id: 16, time: "11:30-11:34", group: "กลุ่ม 16", title: "FrameStory", type: "Python + AI" },
+      { id: 17, time: "11:34-11:38", group: "กลุ่ม 17", title: "เว็บออกแบบตกแต่งห้อง", type: "Web App" },
       { id: 18, time: "11:38-11:42", group: "กลุ่ม 18", title: "AI Mood Playlist", type: "Web App + AI" },
-      { id: 19, time: "11:42-11:46", group: "กลุ่ม 19", title: "แนะนำอุปกรณ์แบดมินตัน", type: "Web App (PHP/SQL)" },
+      { id: 19, time: "11:42-11:46", group: "กลุ่ม 19", title: "แนะนำอุปกรณ์แบดมินตัน", type: "Web App" },
       { id: 20, time: "11:46-11:50", group: "กลุ่ม 20", title: "island.ctrl แบรนด์เสื้อผ้า + E-commerce", type: "Brand + Web" },
-      { id: 21, time: "11:50-11:54", group: "กลุ่ม 21", title: "Phuket Traffic Light", type: "Web App + Maps" },
+      { id: 21, time: "11:50-11:54", group: "กลุ่ม 21", title: "Phuket Traffic Light", type: "Web App" },
       { id: 22, time: "11:54-11:58", group: "กลุ่ม 22", title: "Multiverse Life Path Simulator", type: "Web App" },
-      { id: 23, time: "11:58-12:02", group: "กลุ่ม 23", title: "MHW Discord Guide Bot", type: "Discord Bot (Python)" },
-      { id: 24, time: "12:02-12:06", group: "กลุ่ม 24", title: "Keymage Game", type: "Web Game (Node)" },
-      { id: 25, time: "12:06-12:10", group: "กลุ่ม 25", title: "LifeFlow", type: "Web App (Next.js, PWA)" },
-      { id: 26, time: "12:10-12:14", group: "กลุ่ม 26", title: "SportZone", type: "Web App (Flask)" },
-      { id: 27, time: "12:14-12:18", group: "กลุ่ม 27", title: "Koi no Tsurugi - คลิป AI แนวตั้ง", type: "AI Video (Anime)" }
+      { id: 23, time: "11:58-12:02", group: "กลุ่ม 23", title: "MHW Discord Guide Bot", type: "Discord Bot" },
+      { id: 24, time: "12:02-12:06", group: "กลุ่ม 24", title: "Keymage Game", type: "Web Game" },
+      { id: 25, time: "12:06-12:10", group: "กลุ่ม 25", title: "LifeFlow", type: "Web App" },
+      { id: 26, time: "12:10-12:14", group: "กลุ่ม 26", title: "SportZone", type: "Web App" },
+      { id: 27, time: "12:14-12:18", group: "กลุ่ม 27", title: "Koi no Tsurugi - คลิป AI แนวตั้ง", type: "AI Video" }
     ];
 
     const TOTAL_SECONDS = 240; // 4 นาที
@@ -463,62 +649,73 @@
     let timerInterval = null;
     let isRunning = false;
 
-    // Web Audio Beep สำหรับแจ้งเตือน (ไม่ต้องพึ่งพาไฟล์ mp3)
+    // Web Audio Beep สำหรับแจ้งเตือนแบบออฟไลน์
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function playBeep(freq = 600, duration = 0.2) {
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + duration);
+      try {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (err) {}
     }
 
     document.addEventListener("DOMContentLoaded", () => {
+      populateDropdown();
       renderScheduleList();
       selectGroup(0);
     });
 
+    function populateDropdown() {
+      const picker = document.getElementById('groupDropdownPicker');
+      picker.innerHTML = SCHEDULE_DATA.map((item, idx) => `
+        <option value="${idx}">กลุ่ม ${item.id}: ${item.title.substring(0, 24)}...</option>
+      `).join('');
+    }
+
     function renderScheduleList() {
       const container = document.getElementById('scheduleListContainer');
       container.innerHTML = SCHEDULE_DATA.map((item, idx) => `
-        <div class="schedule-item ${idx === currentGroupIndex ? 'active' : ''}" id="item-${idx}" onclick="selectGroup(${idx})">
-          <div class="item-rank">#${item.id}</div>
-          <div class="item-time">${item.time}</div>
-          <div class="item-details">
-            <div class="item-group-name">${item.group}</div>
-            <div class="item-project-title">${item.title}</div>
+        <div class="live-row ${idx === currentGroupIndex ? 'active' : ''}" id="row-${idx}" onclick="selectGroup(${idx})">
+          <div class="col-idx">#${item.id}</div>
+          <div class="col-time">${item.time}</div>
+          <div class="col-info">
+            <div class="st-group-title">${item.group}</div>
+            <div class="st-project-title">${item.title}</div>
           </div>
-          <div class="item-type">${item.type}</div>
+          <div class="col-type-tag">${item.type}</div>
         </div>
       `).join('');
     }
 
     function selectGroup(index) {
       if (index < 0 || index >= SCHEDULE_DATA.length) return;
-      
+
       pauseTimer();
       currentGroupIndex = index;
       const grp = SCHEDULE_DATA[currentGroupIndex];
 
       document.getElementById('dispGroupName').innerText = grp.group;
       document.getElementById('dispProjectTitle').innerText = grp.title;
-      document.getElementById('dispProjectType').innerText = `ประเภท: ${grp.type}`;
-      document.getElementById('queueProgressStats').innerText = `กลุ่มที่ ${grp.id} / ${SCHEDULE_DATA.length}`;
+      document.getElementById('dispProjectType').innerText = grp.type;
+      document.getElementById('slotTimeRange').innerText = grp.time;
+      document.getElementById('currentProgressBadge').innerText = grp.id;
+      document.getElementById('groupDropdownPicker').value = index;
 
-      // อัปเดต Active Class
-      document.querySelectorAll('.schedule-item').forEach((el, i) => {
+      document.querySelectorAll('.live-row').forEach((el, i) => {
         el.classList.remove('active');
         if (i < currentGroupIndex) el.classList.add('done');
         else el.classList.remove('done');
       });
 
-      const currentElem = document.getElementById(`item-${currentGroupIndex}`);
+      const currentElem = document.getElementById(`row-${currentGroupIndex}`);
       if (currentElem) {
         currentElem.classList.add('active');
         currentElem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -536,29 +733,24 @@
       const barEl = document.getElementById('timerProgressBar');
       clockEl.innerText = formatted;
 
-      // ปรับ Progress Bar
       const pct = (secondsLeft / TOTAL_SECONDS) * 100;
       barEl.style.width = `${pct}%`;
 
-      // ปรับสีเตือน
       clockEl.classList.remove('warning', 'danger');
       if (secondsLeft <= 60 && secondsLeft > 0) {
         clockEl.classList.add('warning');
-        barEl.style.backgroundColor = 'var(--warning)';
+        barEl.style.backgroundColor = '#FEF08A';
       } else if (secondsLeft === 0) {
         clockEl.classList.add('danger');
-        barEl.style.backgroundColor = 'var(--danger)';
+        barEl.style.backgroundColor = '#FECACA';
       } else {
-        barEl.style.backgroundColor = 'var(--primary)';
+        barEl.style.backgroundColor = '#93C5FD';
       }
     }
 
     function toggleTimer() {
-      if (isRunning) {
-        pauseTimer();
-      } else {
-        startTimer();
-      }
+      if (isRunning) pauseTimer();
+      else startTimer();
     }
 
     function startTimer() {
@@ -568,21 +760,16 @@
       isRunning = true;
       const btn = document.getElementById('btnToggleTimer');
       btn.innerText = "⏸ พักเวลา";
-      btn.className = "btn-timer btn-pause";
+      btn.classList.add('is-pause');
 
       timerInterval = setInterval(() => {
         if (secondsLeft > 0) {
           secondsLeft--;
           updateClockDisplay();
 
-          // เตือนเมื่อเหลือ 60 วินาที
-          if (secondsLeft === 60) {
-            playBeep(700, 0.4);
-          }
-
-          // หมดเวลา
+          if (secondsLeft === 60) playBeep(750, 0.35); // เตือนเหลือ 1 นาที
           if (secondsLeft === 0) {
-            playBeep(900, 0.8);
+            playBeep(950, 0.8); // เตือนหมดเวลา
             pauseTimer();
           }
         }
@@ -593,8 +780,8 @@
       isRunning = false;
       clearInterval(timerInterval);
       const btn = document.getElementById('btnToggleTimer');
-      btn.innerText = "▶ เริ่มจับเวลา";
-      btn.className = "btn-timer btn-start";
+      btn.innerText = "⚡ เริ่มจับเวลา";
+      btn.classList.remove('is-pause');
     }
 
     function resetTimer() {
@@ -611,19 +798,5 @@
       }
     }
 
-    // Keyboard Shortcuts เพิ่มความสะดวกให้อาจารย์:
-    // Spacebar = เริ่ม/พักเวลา, ArrowRight = กลุ่มถัดไป, R = รีเซ็ต
-    window.addEventListener('keydown', (e) => {
-      if (e.code === 'Space') {
-        e.preventDefault();
-        toggleTimer();
-      } else if (e.code === 'ArrowRight') {
-        e.preventDefault();
-        goToNextGroup();
-      } else if (e.key === 'r' || e.key === 'R') {
-        resetTimer();
-      }
-    });
-  </script>
-</body>
-</html>
+    // Keyboard Shortcuts
+    window.
