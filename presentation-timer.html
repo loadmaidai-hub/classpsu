@@ -799,4 +799,17 @@
     }
 
     // Keyboard Shortcuts
-    window.
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        toggleTimer();
+      } else if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        goToNextGroup();
+      } else if (e.key === 'r' || e.key === 'R') {
+        resetTimer();
+      }
+    });
+  </script>
+</body>
+</html>
