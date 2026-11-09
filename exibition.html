@@ -190,7 +190,7 @@ function render(){
 chips.addEventListener("click",e=>{const b=e.target.closest(".chip");if(!b)return;if(b.dataset.c==="sort")sortHot=!sortHot;else cat=b.dataset.c;render()});
 grid.addEventListener("click",e=>{const h=e.target.closest(".heart");if(!h)return;const n=+h.dataset.n;vote(n)});
 q.addEventListener("input",render);render();
-try{const qr=qrcode(0,"M");qr.addData("https://claude.ai/artifact/2p8k6WdCtih4ztSJRR4vbx");qr.make();document.getElementById("qrimg").innerHTML=qr.createSvgTag({cellSize:4,margin:0,scalable:true});document.getElementById("qr").hidden=false}catch(e){}
+try{const qr=qrcode(0,"M");qr.addData("https://loadmaidai-hub.github.io/classpsu/exibition");qr.make();document.getElementById("qrimg").innerHTML=qr.createSvgTag({cellSize:4,margin:0,scalable:true});document.getElementById("qr").hidden=false}catch(e){}
 </script>
 </body>
 </html>
