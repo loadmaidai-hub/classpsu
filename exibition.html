@@ -203,7 +203,7 @@ function render(){
   if(sortHot)list.sort((a,b)=>(counts[b.n]||0)-(counts[a.n]||0)||a.n-b.n);
   grid.innerHTML=list.map(g=>{
     const m=g.members.length?g.members.map(x=>"<li><span class=\"sid\">"+x[0]+"</span> "+esc(x[1])+"</li>").join(""):'<li class="empty">รอเพิ่มรายชื่อสมาชิก</li>';
-    const b=g.url?'<a class="btn" href="'+esc(g.url)+'" target="_blank" rel="noopener">เข้าชมผมงาน →</a>':'<span class="btn off">ยังไม่มีลิงก์</span>';
+    const b=g.url?'<a class="btn" href="'+esc(g.url)+'" target="_blank" rel="noopener">เข้าชมผลงาน →</a>':'<span class="btn off">ยังไม่มีลิงก์</span>';
     return '<article class="card" id="g'+g.n+'"><div class="top"><span class="no">กลุ่ม '+g.n+'</span><span class="type">'+esc(g.k)+'</span><button class="heart'+(favs.has(g.n)?" on":"")+(canVote?"":" ro")+'" data-n="'+g.n+'" aria-pressed="'+favs.has(g.n)+'" aria-label="ถูกใจกลุ่ม '+g.n+'">'+HEART+'<span class="hc">'+(counts[g.n]||0)+'</span></button></div><h2 class="title">'+esc(g.t)+'</h2><div class="mw"><div class="lab">สมาชิก</div><ul class="members">'+m+'</ul></div>'+b+'</article>';
   }).join("");
   cnt.textContent="แสดง "+list.length+" / "+G.length+" กลุ่ม";
