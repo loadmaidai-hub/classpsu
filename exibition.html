@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="th">
 <head>
 <meta charset="utf-8">
@@ -42,7 +42,8 @@ main{padding:24px 0 56px}
 .btn:hover{filter:brightness(1.08)}
 .btn.off{background:var(--chip);color:var(--muted);cursor:not-allowed;pointer-events:none}
 header .wrap{position:relative}
-.qr{display:none;position:absolute;top:56px;right:20px;background:#fff;color:#16211c;border-radius:16px;padding:10px 10px 8px;text-align:center;font-size:.75rem;line-height:1.3;box-shadow:0 2px 12px rgba(0,0,0,.08);border:1px solid var(--line)}
+@media (min-width:900px){header .wrap{min-height:185px}}
+.qr{display:none;position:absolute;top:0;right:20px;background:#fff;color:#16211c;border-radius:16px;padding:10px 10px 8px;text-align:center;font-size:.75rem;line-height:1.3;box-shadow:0 2px 12px rgba(0,0,0,.08);border:1px solid var(--line)}
 .qr span{display:block;margin-top:6px}
 #qrimg svg{width:116px;height:116px;display:block}
 .qr[hidden]{display:none!important}
@@ -80,7 +81,7 @@ footer{border-top:1px solid var(--line);padding:24px 0;color:var(--muted);font-s
 <header><div class="wrap">
   <span class="course">วิชา 969-042G4 · Uses of Artificial Intelligence in Daily Life</span>
   <h1>ผลงานนักศึกษา <span>27 กลุ่ม</span></h1>
-  <p class="sub">รวมโครงงานการใช้ปัญญาประดิษฐ์ในชีวิตประจำวัน <br>กดปุ่มในแต่ละการ์ดเพื่อเข้าชมระบบของกลุ่มนั้น</p>
+  <p class="sub">รวมโครงงานการใช้ปัญญาประดิษฐ์ในชีวิตประจำวัน</p>
 <p class="sub" id="vnote" style="display:none;margin-top:8px;font-size:.88rem"></p>
 <div class="qr" id="qr" hidden><div id="qrimg"></div><span>สแกนเพื่อเปิดหน้านี้</span></div>
 </div></header>
@@ -101,10 +102,9 @@ footer{border-top:1px solid var(--line);padding:24px 0;color:var(--muted);font-s
    url: ใส่ลิงก์ระบบของกลุ่ม เช่น "https://example.com" (เว้นว่างไว้ปุ่มจะเป็นสีเทา) */
 const U={
 1:"https://drive.google.com/file/d/17BOmNScZyhcjBkHIrkZevTZ85dtj2lVQ/view?usp=sharing",
-13:"https://drive.google.com/drive/folders/1_vsBWLNb99C3x0aTXOhYsC_mhiJhuw9L?usp=sharing",
-27:"https://drive.google.com/drive/folders/1KI8BxVC5cfxkFByOhiyiw9NiCr78yzgM?usp=sharing",
 2:"https://drive.google.com/drive/folders/1_5OTwke4yjAqMyfpyErxF57CzV6-ieR1",
 3:"https://horror-engine-advisor-004-031-032.vercel.app",
+4:"",
 5:"https://6730611007-ctrl.github.io/FixMatch/",
 6:"https://6730611008tat.github.io/pokemon-vgc-lab/",
 7:"https://6730611010-cloud.github.io/novel/",
@@ -113,6 +113,7 @@ const U={
 10:"https://canva.link/dt22uukyhcz8y7s",
 11:"https://drive.google.com/drive/folders/1HoF2RErWaazNB4OdrjRgJGhvGg2GLta1?usp=sharing",
 12:"https://drive.google.com/drive/folders/11OA3OAmNAV2ezsGlqNPStu9_EYqrhHKw?usp=sharing",
+13:"https://drive.google.com/drive/folders/1_vsBWLNb99C3x0aTXOhYsC_mhiJhuw9L?usp=sharing",
 14:"https://quizquest-ko.netlify.app/",
 15:"https://6730611073-eng.github.io/Gerry-Girls/",
 16:"https://drive.google.com/file/d/1G0Otc1G7fzhU9LE3Knyiy8-_WrrHXdSe/view?usp=sharing",
@@ -122,8 +123,10 @@ const U={
 20:"https://islandctrl.netlify.app/",
 21:"https://phuket-traffic-light.onrender.com/",
 22:"https://share.gemini.google/RAuveecnU3VN",
+24:"",
 25:"https://life-zeta-two.vercel.app/",
-26:"https://sport-zone-11.onrender.com/"
+26:"https://sport-zone-11.onrender.com/",
+27:"https://drive.google.com/drive/folders/1KI8BxVC5cfxkFByOhiyiw9NiCr78yzgM?usp=sharing"
 };
 const G=[
 [1, "วิดีโอแนะนำ ประเภทเครื่องบินในเกม war thunder ในสัญชาติเยอรมัน", "Video", [["6730611001", "คุณานนต์ แพใหญ่"], ["6730611006", "ธนกฤต จริยวัตกุล"], ["6730611064", "ธนโชติ สุวรรณวงศ์"]]],
@@ -160,7 +163,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 const CAT=k=>/Game/.test(k)?"เกม":/Video/.test(k)?"วิดีโอ":/Brand/.test(k)?"แบรนด์":k==="Web App"?"เว็บแอป":"แอป / โปรแกรม";
 const CATS=["เว็บแอป","เกม","วิดีโอ","แอป / โปรแกรม","แบรนด์"];
 const HEART='<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>';
-const DB_URL="https://exibiti-default-rtdb.asia-southeast1.firebasedatabase.app/";
+const DB_URL="https://exibiti-default-rtdb.asia-southeast1.firebasedatabase.app";
 /* วาง Firebase Realtime Database URL ระหว่างเครื่องหมายคำพูดด้านบน เช่น "https://xxxx-default-rtdb.asia-southeast1.firebasedatabase.app" */
 let cat="all",favs=new Set(),counts={},canVote=false,sortHot=false,busy=false;
 const vnote=document.getElementById("vnote");
