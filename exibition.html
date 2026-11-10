@@ -80,7 +80,7 @@ footer{border-top:1px solid var(--line);padding:24px 0;color:var(--muted);font-s
 <header><div class="wrap">
   <span class="course">วิชา 969-042G4 · Uses of Artificial Intelligence in Daily Life</span>
   <h1>ผลงานนักศึกษา <span>27 กลุ่ม</span></h1>
-  <p class="sub">รวมโครงงานการใช้ปัญญาประดิษฐ์ในชีวิตประจำวัน<br> กดปุ่มในแต่ละการ์ดเพื่อเข้าชมระบบของกลุ่มนั้น</p>
+  <p class="sub">รวมโครงงานการใช้ปัญญาประดิษฐ์ในชีวิตประจำวัน กดปุ่มในแต่ละการ์ดเพื่อเข้าชมระบบของกลุ่มนั้น</p>
 <p class="sub" id="vnote" style="display:none;margin-top:8px;font-size:.88rem"></p>
 <div class="qr" id="qr" hidden><div id="qrimg"></div><span>สแกนเพื่อเปิดหน้านี้</span></div>
 </div></header>
@@ -100,8 +100,26 @@ footer{border-top:1px solid var(--line);padding:24px 0;color:var(--muted);font-s
    members: ใส่สมาชิกเป็นคู่ [รหัส, ชื่อ]
    url: ใส่ลิงก์ระบบของกลุ่ม เช่น "https://example.com" (เว้นว่างไว้ปุ่มจะเป็นสีเทา) */
 const U={
-8:"https://event-generator-henna.vercel.app/",
-15:"https://6730611073-eng.github.io/Gerry-Girls/"
+2:"https://drive.google.com/drive/folders/1_5OTwke4yjAqMyfpyErxF57CzV6-ieR1",
+3:"https://horror-engine-advisor-004-031-032.vercel.app",
+5:"https://6730611007-ctrl.github.io/FixMatch/",
+6:"https://6730611008tat.github.io/pokemon-vgc-lab/",
+7:"https://6730611010-cloud.github.io/novel/",
+8:"https://event-generator-henna.vercel.app",
+9:"https://meow-tarot.onrender.com/",
+10:"https://canva.link/dt22uukyhcz8y7s",
+11:"https://drive.google.com/drive/folders/1HoF2RErWaazNB4OdrjRgJGhvGg2GLta1?usp=sharing",
+12:"https://drive.google.com/drive/folders/11OA3OAmNAV2ezsGlqNPStu9_EYqrhHKw?usp=sharing",
+14:"https://quizquest-ko.netlify.app/",
+15:"https://6730611073-eng.github.io/Gerry-Girls/",
+16:"https://drive.google.com/file/d/1G0Otc1G7fzhU9LE3Knyiy8-_WrrHXdSe/view?usp=sharing",
+17:"https://shin2930.github.io/Design_my_room/",
+18:"https://share.gemini.google/oDO7Rgp6YCkB",
+19:"https://kanitzz-21.github.io/badmintonfitpro/",
+20:"https://islandctrl.netlify.app/",
+21:"https://phuket-traffic-light.onrender.com/",
+22:"https://share.gemini.google/RAuveecnU3VN",
+26:"https://sport-zone-11.onrender.com/"
 };
 const G=[
 [1, "วิดีโอแนะนำ ประเภทเครื่องบินในเกม war thunder ในสัญชาติเยอรมัน", "Video", [["6730611001", "คุณานนต์ แพใหญ่"], ["6730611006", "ธนกฤต จริยวัตกุล"], ["6730611064", "ธนโชติ สุวรรณวงศ์"]]],
@@ -138,9 +156,16 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 const CAT=k=>/Game/.test(k)?"เกม":/Video/.test(k)?"วิดีโอ":/Brand/.test(k)?"แบรนด์":k==="Web App"?"เว็บแอป":"แอป / โปรแกรม";
 const CATS=["เว็บแอป","เกม","วิดีโอ","แอป / โปรแกรม","แบรนด์"];
 const HEART='<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>';
-let cat="all",favs=new Set(),counts={},canVote=false,sortHot=false,db=null,uid=null,busy=false;
+const DB_URL="";
+/* วาง Firebase Realtime Database URL ระหว่างเครื่องหมายคำพูดด้านบน เช่น "https://xxxx-default-rtdb.asia-southeast1.firebasedatabase.app" */
+let cat="all",favs=new Set(),counts={},canVote=false,sortHot=false,busy=false;
 const vnote=document.getElementById("vnote");
 function msg(t){vnote.textContent=t;vnote.style.display="block"}
+let did="";
+try{did=localStorage.getItem("did")||"";if(!did){did=((window.crypto&&crypto.randomUUID)?crypto.randomUUID():Date.now()+Math.random().toString(36).slice(2)).replace(/[^a-zA-Z0-9]/g,"");localStorage.setItem("did",did)}}catch(e){}
+const api=p=>DB_URL.replace(/\/$/,"")+p+".json";
+function tally(all){counts={};favs=new Set();Object.entries(all||{}).forEach(([id,g])=>{(Array.isArray(g)?g:Object.values(g||{})).forEach(n=>{counts[n]=(counts[n]||0)+1;if(id===did)favs.add(n)})})}
+async function load(){if(busy)return;try{const r=await fetch(api("/votes"),{cache:"no-store"});if(!r.ok)throw 0;tally(await r.json());render()}catch(e){}}
 async function vote(n){
   if(!canVote||busy)return;
   busy=true;
@@ -148,27 +173,18 @@ async function vote(n){
   had?favs.delete(n):favs.add(n);
   counts[n]=Math.max(0,(counts[n]||0)+(had?-1:1));
   render();
-  try{await db.collection("votes").doc(uid).set({g:[...favs].sort((a,b)=>a-b)})}
+  try{const r=await fetch(api("/votes/"+did),{method:"PUT",body:JSON.stringify([...favs].sort((a,b)=>a-b))});if(!r.ok)throw 0}
   catch(e){had?favs.add(n):favs.delete(n);counts[n]=Math.max(0,(counts[n]||0)+(had?1:-1));render();msg("บันทึกโหวตไม่สำเร็จ ลองกดใหม่อีกครั้ง")}
   busy=false;
 }
-(async()=>{
-  try{
-    if(!window.claude||!claude.use)return msg("เปิดดูผลงานได้ตามปกติ แต่ระบบโหวตใช้ได้เฉพาะเมื่อเปิดผ่าน claude.ai");
-    const [u,d]=await Promise.all([claude.use("user"),claude.use("db")]);
-    if(!d)return msg("ตอนนี้ยังใช้ระบบโหวตไม่ได้ในมุมมองนี้ (ดูผลงานได้ตามปกติ)");
-    db=d;uid=u?await u.id():null;
-    const cw=u?await u.can("data.write"):null;
-    canVote=!!uid&&cw!==false;
-    if(!canVote)msg("ดูคะแนนโหวตได้ แต่ต้องเข้าสู่ระบบด้วยบัญชีที่มีสิทธิ์ผู้ร่วมใช้งานจึงจะกดหัวใจได้");
-    db.collection("votes").onSnapshot(snap=>{
-      counts={};favs=new Set();
-      snap.docs.forEach(x=>{const g=(x.data()||{}).g||[];g.forEach(n=>{counts[n]=(counts[n]||0)+1;if(x.id===uid)favs.add(n)})});
-      render();
-    },()=>{});
-    render();
-  }catch(e){}
-})();
+if(!DB_URL)msg("ระบบโหวตยังไม่เปิดใช้งาน");
+else{
+  canVote=!!did;
+  if(!did)msg("เบราว์เซอร์นี้ไม่รองรับการโหวต (ปิดโหมดส่วนตัวแล้วลองใหม่) แต่ยังดูคะแนนได้");
+  load();
+  try{const es=new EventSource(api("/votes"));es.addEventListener("put",load);es.addEventListener("patch",load)}catch(e){}
+  setInterval(load,30000);
+}
 const chips=document.getElementById("chips");
 function drawChips(){
   const items=[["all","ทั้งหมด ("+G.length+")"]].concat(CATS.map(x=>[x,x+" ("+G.filter(g=>CAT(g.k)===x).length+")"]));
